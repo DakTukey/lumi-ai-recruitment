@@ -1,0 +1,57 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+app:
+  ai-service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+    timeout-seconds: 60
+  candidate-preferences:
+    employment-types: ${LUMI_EMPLOYMENT_TYPES:FULL_TIME,INTERNSHIP}
+    work-modes: ${LUMI_WORK_MODES:ONSITE,HYBRID,REMOTE}
+    locations: ${LUMI_LOCATIONS:Đà Nẵng}
+    positions: Frontend Developer,Backend Developer,UI/UX Designer,Data Analyst,Marketing
+    skills: Java,Spring Boot,React,TypeScript,Python,SQL,Figma,Git,Giao tiếp,Làm việc nhóm
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lumi_recruitment
+    username: postgres
+    password: ${DB_PASSWORD:1910}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+
+  flyway:
+    default-schema: public
+    schemas: public
+    locations: classpath:db/migration
+    baseline-version: 0
+    baseline-on-migrate: false
+    clean-disabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+logging:
+  level:
+    com.lumi.recruitment: DEBUG
+    org.hibernate.SQL: DEBUG

@@ -1,0 +1,64 @@
+# =======================================
+# Root Git Ignore for Lumi AI Recruitment
+# =======================================
+
+# Operating System & IDEs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# =======================================
+# Frontend (React / Vite / Node)
+# =======================================
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# =======================================
+# Backend (Spring Boot / Maven / Java)
+# =======================================
+backend/target/
+backend/*.class
+backend/*.jar
+backend/*.war
+backend/*.nar
+backend/*.ear
+backend/*.zip
+backend/*.tar.gz
+backend/*.rar
+backend/.settings/
+backend/.project
+backend/.classpath
+backend/.factorypath
+
+# =======================================
+# AI Service (Python / FastAPI)
+# =======================================
+ai-service/__pycache__/
+ai-service/*.py[cod]
+ai-service/*$py.class
+ai-service/.venv/
+ai-service/venv/
+ai-service/env/
+ai-service/.pytest_cache/
+ai-service/.env
+ai-service/.env.*
+!ai-service/.env.example
+
+# Temporary / Agent artifacts
+.agents/
+.codex/
+.aws/

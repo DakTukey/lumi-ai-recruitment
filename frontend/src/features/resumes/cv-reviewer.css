@@ -1,0 +1,509 @@
+.cv-reviewer {
+  min-width: 0;
+  margin-top: 22px;
+  border: 1px solid var(--hr-border, #d8dfe6);
+  border-radius: 12px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.cv-reviewer-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 16px 20px;
+  background: var(--hr-input, #f3f5f8);
+  color: var(--hr-text, #263249);
+  border-bottom: 1px solid var(--hr-border, #d8dfe6);
+}
+.cv-reviewer-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cv-reviewer-toolbar > div > svg {
+  flex-shrink: 0;
+  color: var(--hr-muted, #53647a);
+}
+.cv-reviewer-toolbar strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.cv-reviewer .cv-reviewer-toolbar p {
+  margin: 4px 0 0;
+  max-width: 540px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--hr-muted, #53647a);
+}
+.cv-reviewer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--hr-border, #d8dfe6);
+  font-size: 10px;
+  color: var(--hr-body, #53647a);
+}
+.cv-reviewer-badge.is-sample {
+  color: var(--hr-amber, #865c15);
+}
+.cv-reviewer-canvas {
+  background: #111820;
+  padding: clamp(12px, 3cqi, 32px);
+}
+.cv-document-view .cv-paper-reviewer {
+  color-scheme: light;
+  color: var(--cv-ink);
+  background: var(--cv-paper);
+  border: 0;
+  max-width: 1000px;
+  margin: 0 auto;
+  aspect-ratio: auto;
+  min-height: 720px;
+  box-shadow: 0 8px 30px #0003;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.cv-paper-reviewer .cv-paper-body {
+  display: grid;
+  grid-template-columns: minmax(0, 31%) minmax(0, 1fr);
+  min-height: inherit;
+}
+.cv-paper-reviewer .cv-paper-aside {
+  background: var(--cv-aside);
+  border: 0;
+  padding: 32px 22px;
+  font-size: 12px;
+}
+.cv-paper-reviewer .cv-paper-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.cv-paper-reviewer .cv-paper-header h2 {
+  font-size: clamp(22px, 3.2cqi, 30px);
+  line-height: 1.4;
+  letter-spacing: -0.6px;
+  color: var(--cv-ink);
+}
+.cv-document-view .cv-paper-title {
+  margin-top: 8px;
+  color: var(--cv-muted);
+  font-size: 13px;
+}
+.cv-reviewer-monogram {
+  width: 108px;
+  height: 108px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  border: 6px solid var(--cv-mono-border);
+  outline: 1px solid var(--cv-mono-outline);
+  border-radius: 50%;
+  background: var(--cv-mono-bg);
+  color: var(--cv-mono-ink);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.cv-reviewer-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--cv-muted);
+}
+.cv-paper-reviewer .cv-paper-main {
+  padding: 36px 30px 44px;
+}
+.cv-paper-reviewer .cv-paper-section + .cv-paper-section {
+  margin-top: 30px;
+}
+.cv-paper-reviewer .cv-paper-section h3 {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 0 0 0 15px;
+  border: 0;
+  color: var(--cv-ink);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: -0.3px;
+}
+.cv-paper-reviewer .cv-paper-section h3::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  inset: 2px auto 2px 0;
+  border-radius: 4px;
+  background: var(--cv-marker);
+}
+.cv-document-view .cv-paper-section p {
+  color: var(--cv-ink);
+  line-height: 1.85;
+}
+.cv-paper-reviewer .cv-entry-heading h4 {
+  font-size: 13px;
+  color: var(--cv-ink);
+}
+.cv-paper-reviewer .cv-entry-date {
+  color: var(--cv-muted);
+  font-size: 10px;
+}
+.cv-document-view .cv-paper-section .cv-entry-subtitle {
+  color: var(--cv-muted);
+  margin-top: 4px;
+  font-size: 12px;
+}
+.cv-paper-reviewer .cv-paper-entry + .cv-paper-entry {
+  margin-top: 22px;
+}
+.cv-paper-reviewer .cv-paper-contact {
+  display: grid;
+  gap: 12px;
+  font-size: 11px;
+}
+.cv-paper-reviewer .cv-paper-contact > a,
+.cv-paper-reviewer .cv-paper-contact > span {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.cv-paper-reviewer .cv-paper-contact svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--cv-icon);
+}
+.cv-paper-reviewer .cv-paper-link {
+  color: var(--cv-link);
+  font-size: 11px;
+  margin: 0;
+}
+.cv-paper-reviewer .cv-paper-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.cv-paper-reviewer .cv-paper-skills li {
+  padding: 4px 9px;
+  border: 1px solid var(--cv-skill-border);
+  border-radius: 5px;
+  background: var(--cv-skill-bg);
+  color: var(--cv-skill-ink);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.hr-application-page .hr-application-grid.hr-application-grid-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+.hr-application-grid-full .hr-application-side {
+  max-width: 720px;
+  width: 100%;
+}
+@container (max-width:620px) {
+  .cv-paper-reviewer .cv-paper-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cv-paper-reviewer .cv-paper-aside {
+    padding: 24px;
+  }
+  .cv-paper-reviewer .cv-paper-header {
+    margin-bottom: 24px;
+  }
+  .cv-paper-reviewer .cv-paper-main {
+    padding: 28px 24px;
+  }
+  .cv-paper-reviewer .cv-paper-contact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+  .cv-reviewer-monogram {
+    width: 80px;
+    height: 80px;
+    font-size: 26px;
+  }
+  .cv-document-view .cv-paper-reviewer {
+    min-height: 0;
+  }
+}
+@container (max-width:380px) {
+  .cv-paper-reviewer .cv-paper-contact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.cv-document-view .cv-reviewer-field {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 3px 10px;
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: normal;
+  min-width: 0;
+}
+.cv-reviewer-field > span:first-child {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cv-muted);
+}
+.cv-reviewer-field em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--cv-placeholder);
+}
+.cv-document-view .cv-paper-aside .cv-reviewer-field {
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  gap: 1px;
+  font-size: 11px;
+}
+.cv-document-view .cv-paper-header .cv-reviewer-field {
+  margin-top: 10px;
+}
+.cv-paper-reviewer .cv-reviewer-contact > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+.cv-reviewer-contact > div > .cv-reviewer-field {
+  flex: 1;
+}
+.cv-document-view .cv-paper-section .cv-reviewer-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--cv-empty-border);
+  border-radius: 6px;
+  color: var(--cv-placeholder);
+  background: var(--cv-empty-bg);
+  font-size: 11px;
+  line-height: 1.75;
+}
+.cv-paper-reviewer .cv-entry-date {
+  white-space: normal;
+}
+@container (max-width: 380px) {
+  .cv-document-view .cv-reviewer-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Every role uses this document container, including the live builder preview. */
+.cv-document-view {
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.cv-document-view {
+  --cv-ink: #26344c;
+  --cv-muted: #52637a;
+  --cv-paper: #fff;
+  --cv-aside: linear-gradient(155deg, #e1eef4, #eff5f8 55%, #dfeef3);
+  --cv-mono-border: #f8fbfc;
+  --cv-mono-outline: #bdcedb;
+  --cv-mono-bg: #d2e2ed;
+  --cv-mono-ink: #354964;
+  --cv-marker: #4c6885;
+  --cv-icon: #506b86;
+  --cv-link: #385e86;
+  --cv-skill-border: #c4d4df;
+  --cv-skill-bg: #f8fbfc;
+  --cv-skill-ink: #334d68;
+  --cv-placeholder: #65758a;
+  --cv-empty-border: #cfdae4;
+  --cv-empty-bg: #f7f9fc;
+  --cv-pattern: #456b90;
+  --cv-tool-bg: #eef3f7;
+  --cv-tool-border: #bacbd8;
+  --cv-tool-active: #fff;
+}
+.cv-document-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 1000px;
+  margin: 0 auto 12px;
+  padding: 8px 10px;
+  background: var(--cv-tool-bg);
+  border: 1px solid var(--cv-tool-border);
+  border-radius: 8px;
+  color: var(--cv-ink);
+  font-size: 11px;
+}
+.cv-document-tools > div {
+  display: flex;
+  gap: 4px;
+}
+.cv-document-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cv-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.cv-document-tools button[aria-pressed='true'] {
+  color: var(--cv-ink);
+  background: var(--cv-tool-active);
+  border-color: var(--cv-tool-border);
+}
+.cv-document-tools button:hover {
+  border-color: var(--cv-tool-border);
+}
+.cv-document-tools button:focus-visible {
+  outline: 2px solid var(--cv-link);
+  outline-offset: 2px;
+}
+.cv-paper-reviewer .cv-paper-main {
+  position: relative;
+  isolation: isolate;
+}
+.cv-paper-reviewer .cv-paper-main::before,
+.cv-paper-reviewer .cv-paper-main::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+  background: var(--cv-pattern);
+}
+.cv-paper-reviewer .cv-paper-main::before {
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  opacity: 0.045;
+}
+.cv-paper-reviewer .cv-paper-main::after {
+  bottom: 0;
+  right: 0;
+  width: 240px;
+  height: 140px;
+  border-radius: 100% 0 0 0;
+  opacity: 0.035;
+}
+/* Dark mode is a viewing preference. Printing always uses the light palette above. */
+@media screen {
+  .cv-document-view[data-cv-theme='dark'] {
+    --cv-ink: #e7edf6;
+    --cv-muted: #afbed0;
+    --cv-paper: #1d2735;
+    --cv-aside: linear-gradient(155deg, #24384a, #223244 55%, #263c4d);
+    --cv-mono-border: #34465b;
+    --cv-mono-outline: #506a82;
+    --cv-mono-bg: #334c64;
+    --cv-mono-ink: #e6eff9;
+    --cv-marker: #9abbdc;
+    --cv-icon: #9abbdc;
+    --cv-link: #b8d7fa;
+    --cv-skill-border: #4d657b;
+    --cv-skill-bg: #2b4054;
+    --cv-skill-ink: #d8e8f5;
+    --cv-placeholder: #aabbd0;
+    --cv-empty-border: #465a70;
+    --cv-empty-bg: #263344;
+    --cv-pattern: #b8d7fa;
+    --cv-tool-bg: #1a2432;
+    --cv-tool-border: #465a70;
+    --cv-tool-active: #33485f;
+  }
+  .cv-document-view[data-cv-theme='dark'] .cv-paper-reviewer {
+    color-scheme: dark;
+  }
+}
+@media print {
+  .cv-document-tools,
+  .cv-paper-reviewer .cv-paper-main::before,
+  .cv-paper-reviewer .cv-paper-main::after {
+    display: none;
+  }
+  .cv-document-view {
+    container-type: normal;
+  }
+  .cv-document-view .cv-paper-reviewer {
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    font-size: 10pt;
+  }
+  .cv-paper-reviewer .cv-paper-body {
+    display: grid;
+    grid-template-columns: minmax(0, 31%) minmax(0, 1fr);
+    min-height: 0;
+  }
+  .cv-paper-reviewer .cv-paper-aside {
+    display: block;
+    padding: 18px 12px;
+    border: 0;
+  }
+  .cv-paper-reviewer .cv-paper-main {
+    padding: 18px;
+  }
+  .cv-paper-reviewer .cv-paper-contact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cv-reviewer-monogram {
+    width: 76px;
+    height: 76px;
+    font-size: 26px;
+  }
+  .cv-paper-reviewer .cv-paper-header h2 {
+    font-size: 20pt;
+  }
+  .cv-paper-reviewer .cv-paper-section + .cv-paper-section {
+    margin-top: 20px;
+  }
+  .cv-paper-reviewer .cv-paper-section h3 {
+    font-size: 12pt;
+  }
+  .cv-paper-reviewer .cv-paper-entry {
+    break-inside: avoid;
+  }
+}
+
+.cv-reviewer-link-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cv-cert-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.cv-cert-verify-badge.is-trusted {
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1px solid #a5d6a7;
+}
+
+.cv-cert-verify-badge.is-warning {
+  background: #fff8e1;
+  color: #b45309;
+  border: 1px solid #ffe082;
+}
+

@@ -1,0 +1,131 @@
+.resume-library {
+  padding-block: 18px 26px;
+  border-bottom: 1px solid #e1e8db;
+  margin-bottom: 24px;
+}
+.resume-library-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+.resume-library-heading h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.resume-library-heading p {
+  font-size: 12px;
+  color: #64775d;
+  margin: 0;
+  line-height: 1.7;
+}
+.resume-library-heading .button {
+  flex-shrink: 0;
+}
+.resume-library-empty {
+  text-align: center;
+  padding: 30px 20px;
+  border: 1px dashed #cbd8c3;
+  border-radius: 10px;
+  background: #f5f8ef;
+  color: #59704d;
+}
+.resume-library-empty h4 {
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+.resume-library-empty p {
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.7;
+}
+.resume-library-list {
+  display: grid;
+  gap: 12px;
+}
+.resume-library-item {
+  display: flex;
+  align-items: start;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid #dce5d4;
+  border-radius: 10px;
+  background: #fbfcf7;
+}
+.resume-library-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 46px;
+  border-radius: 8px;
+  background: #e7efdc;
+  color: #557345;
+}
+.resume-library-copy {
+  flex: 1;
+  min-width: 0;
+}
+.resume-library-copy h4 {
+  font-size: 14px;
+  margin: 0 0 5px;
+  overflow-wrap: anywhere;
+}
+.resume-library-copy p {
+  font-size: 12px;
+  color: #617255;
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+.resume-library-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: #718065;
+}
+.resume-library-meta > span {
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #eaf0e2;
+}
+.resume-default-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #36553e;
+}
+.resume-library-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: end;
+  max-width: 170px;
+}
+.resume-library-actions .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  min-height: 36px;
+}
+.resume-library-notice {
+  font-size: 12px;
+  color: #315b3d;
+}
+@media (max-width: 700px) {
+  .resume-library-heading {
+    flex-direction: column;
+  }
+  .resume-library-item {
+    flex-wrap: wrap;
+  }
+  .resume-library-actions {
+    width: 100%;
+    max-width: none;
+    justify-content: start;
+  }
+}

@@ -1,0 +1,236 @@
+.onboarding-shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: #f7f8f2;
+}
+.onboarding-header {
+  border-bottom: 1px solid #e3e8dc;
+  background: #fffefa;
+}
+.onboarding-header-inner {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.onboarding-header button {
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.onboarding-header button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.onboarding-footer {
+  margin-top: auto;
+  padding: 0 24px 28px;
+  text-align: center;
+  color: #627268;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.container.onboarding-page {
+  max-width: 860px;
+  width: 100%;
+  padding-block: 36px 32px;
+}
+.onboarding-intro {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.onboarding-intro h1 {
+  margin: 14px 0;
+  font-size: clamp(28px, 4vw, 42px);
+}
+.onboarding-intro p {
+  color: #627268;
+}
+.panel.onboarding-card {
+  padding: clamp(22px, 4vw, 40px);
+  background: linear-gradient(145deg, #f4f6e9, #fffdf6);
+}
+.onboarding-progress {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  gap: 14px;
+  margin: 0 0 24px;
+}
+.onboarding-progress li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #667169;
+  border-bottom: 3px solid #dce2d5;
+  padding-bottom: 16px;
+}
+.onboarding-progress li.active {
+  color: #284c3f;
+  border-color: #71936b;
+}
+.onboarding-progress li span {
+  display: grid;
+  place-items: center;
+  background: #e3e9dc;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.onboarding-progress li[aria-current] span {
+  background: #284c3f;
+  color: white;
+}
+.onboarding-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.onboarding-fields small {
+  font-weight: 400;
+  color: #637268;
+}
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.onboarding-card button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+@media (max-width: 540px) {
+  .onboarding-header .brand {
+    font-size: 23px;
+    letter-spacing: -1px;
+  }
+  .onboarding-header .brand-symbol {
+    width: 26px;
+    height: 26px;
+  }
+  .onboarding-header-inner {
+    min-height: 68px;
+    gap: 10px;
+  }
+  .onboarding-header button {
+    font-size: 13px;
+  }
+  .container.onboarding-page {
+    padding-block: 24px;
+  }
+  .onboarding-progress li {
+    flex-direction: column;
+    text-align: center;
+  }
+  .onboarding-actions .button {
+    flex: 1;
+  }
+}
+
+.question-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.question-group legend {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.question-hint {
+  font-size: 13px;
+  color: #627268;
+  margin: 0 0 12px;
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.onboarding-card .choice-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #ced8c8;
+  border-radius: 12px;
+  background: #fffefa;
+  cursor: pointer;
+}
+.onboarding-card .choice-card.selected {
+  border-color: #42674c;
+  background: #e8efdf;
+}
+.onboarding-card .choice-card input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin: 0;
+  accent-color: #284c3f;
+}
+.choice-card small {
+  display: block;
+  margin-top: 5px;
+}
+.choice-chips,
+.chosen-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.choice-chips button,
+.chosen-skills button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #c8d4c0;
+  background: #fffefa;
+  color: #284c3f;
+  padding: 10px 14px;
+  border-radius: 24px;
+  cursor: pointer;
+}
+.choice-chips button[aria-pressed='true'],
+.chosen-skills button {
+  background: #284c3f;
+  color: white;
+  border-color: #284c3f;
+}
+.choice-chips {
+  margin-bottom: 16px;
+}
+.chosen-skills {
+  margin-top: 12px;
+}
+.skill-entry {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 8px;
+}
+.skill-entry input {
+  flex: 1;
+  min-width: 0;
+}
+.choice-card:focus-within,
+.choice-chips button:focus-visible,
+.chosen-skills button:focus-visible {
+  outline: 2px solid #42674c;
+  outline-offset: 3px;
+}
+@media (max-width: 540px) {
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+  .skill-entry .button {
+    padding-inline: 14px;
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "title": "CV mẫu — Backend Java Junior",
+  "fullName": "Nguyễn Minh An",
+  "email": "minh.an@example.test",
+  "phone": "",
+  "location": "Đà Nẵng",
+  "desiredPosition": "Backend Developer (Java / Spring Boot)",
+  "summary": "Lập trình viên Backend Java có hơn một năm kinh nghiệm phát triển REST API với Spring Boot và PostgreSQL. Đã tham gia xây dựng chức năng quản lý đơn hàng, phân quyền người dùng và xử lý giao dịch dữ liệu. Mong muốn phát triển chuyên sâu về thiết kế backend, kiểm thử và vận hành ứng dụng trong đội ngũ sản phẩm.",
+  "githubUrl": "",
+  "linkedinUrl": "",
+  "portfolioUrl": "",
+  "skills": [
+    "Java",
+    "Spring Boot",
+    "Spring Security",
+    "Spring Data JPA",
+    "PostgreSQL",
+    "REST API",
+    "Git",
+    "JUnit",
+    "Mockito",
+    "Docker"
+  ],
+  "experiences": [
+    {
+      "company": "Công ty Công nghệ Minh Họa",
+      "position": "Junior Backend Developer",
+      "startDate": "2025-07",
+      "endDate": "",
+      "current": true,
+      "description": "Phát triển các REST API quản lý sản phẩm, đơn hàng và tài khoản bằng Java, Spring Boot và Spring Data JPA.\nThiết kế bảng PostgreSQL, sử dụng khóa ngoại và transaction cho quy trình tạo đơn hàng và cập nhật tồn kho.\nTriển khai đăng nhập bằng JWT và phân quyền theo vai trò với Spring Security.\nViết unit test cho logic tạo đơn và kiểm tra quyền truy cập bằng JUnit, Mockito.\nSử dụng Git theo nhánh tính năng, gửi pull request và tham gia code review trong nhóm 4 người.\nPhối hợp với frontend để thống nhất hợp đồng API, xử lý lỗi và cập nhật tài liệu Swagger."
+    },
+    {
+      "company": "Nhóm Sản phẩm Thực Hành",
+      "position": "Backend Intern",
+      "startDate": "2025-01",
+      "endDate": "2025-06",
+      "current": false,
+      "description": "Xây dựng API CRUD quản lý sách và bạn đọc dưới sự hướng dẫn của lập trình viên phụ trách.\nSử dụng PostgreSQL để lưu dữ liệu và viết truy vấn lọc, sắp xếp, phân trang.\nSửa lỗi validation, bổ sung xử lý ngoại lệ và kiểm tra API bằng Postman.\nBáo cáo tiến độ, trao đổi các vấn đề kỹ thuật và cập nhật công việc theo sprint."
+    }
+  ],
+  "educations": [
+    {
+      "school": "Đại học Minh Họa",
+      "degree": "Cử nhân",
+      "field": "Công nghệ thông tin",
+      "startDate": "2021-09",
+      "endDate": "2025-06",
+      "description": "Định hướng công nghệ phần mềm. Đồ án tốt nghiệp: hệ thống quản lý bán hàng với Spring Boot và PostgreSQL.",
+      "gpa": 3.35,
+      "gpaScale": 4
+    }
+  ],
+  "projects": [
+    {
+      "name": "OrderFlow — Hệ thống quản lý đơn hàng",
+      "role": "Backend Developer · Nhóm 4 người",
+      "url": "",
+      "startDate": "2025-08",
+      "endDate": "2026-03",
+      "current": false,
+      "technologies": [
+        "Java",
+        "Spring Boot",
+        "Spring Security",
+        "PostgreSQL",
+        "Docker",
+        "JUnit"
+      ],
+      "description": "Phụ trách API tạo đơn hàng, cập nhật trạng thái và tra cứu lịch sử giao dịch.\nDùng transaction để đảm bảo cập nhật đơn hàng và tồn kho nhất quán khi có lỗi.\nÁp dụng JWT, phân quyền khách hàng/nhân viên/quản trị và kiểm tra quyền truy cập tài nguyên.\nĐóng gói ứng dụng và PostgreSQL bằng Docker Compose để cả nhóm chạy cùng môi trường phát triển.\nViết kiểm thử cho các trường hợp đơn hàng không hợp lệ, thiếu tồn kho và truy cập sai quyền.\nDocker mới sử dụng ở môi trường phát triển; chưa trực tiếp vận hành hệ thống production."
+    },
+    {
+      "name": "BookHub — Quản lý thư viện",
+      "role": "Thành viên phát triển backend · Nhóm 3 người",
+      "url": "",
+      "startDate": "2024-09",
+      "endDate": "2024-12",
+      "current": false,
+      "technologies": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "Git",
+        "Postman"
+      ],
+      "description": "Xây dựng API mượn/trả sách và tìm kiếm sách theo tên, tác giả.\nThiết kế các bảng sách, bạn đọc và phiếu mượn; sử dụng khóa ngoại để kiểm soát liên kết dữ liệu.\nKiểm tra giới hạn số sách được mượn và tình trạng sách trước khi tạo phiếu.\nPhân chia công việc qua Git, giải quyết xung đột mã nguồn và trình bày sản phẩm với giảng viên."
+    }
+  ],
+  "certifications": [],
+  "languages": [
+    {
+      "name": "Tiếng Anh",
+      "proficiency": "B1 — tự đánh giá; đọc tài liệu kỹ thuật, trao đổi cơ bản",
+      "certification": ""
+    }
+  ],
+  "awards": [],
+  "activities": [
+    {
+      "name": "Câu lạc bộ Lập trình",
+      "organization": "Đại học Minh Họa",
+      "role": "Thành viên",
+      "startDate": "2022-10",
+      "endDate": "2025-05",
+      "current": false,
+      "description": "Tham gia nhóm thực hành Java và SQL hằng tuần.\nHỗ trợ thành viên mới cấu hình môi trường và làm quen với Git."
+    }
+  ],
+  "template": "modern",
+  "status": "READY",
+  "version": null
+}

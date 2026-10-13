@@ -1,0 +1,285 @@
+.job-detail-page .jd-ai {
+  margin: 24px 0 32px;
+  border: 1px solid #d2dcd3;
+  border-radius: 18px;
+  background: linear-gradient(115deg, #edf3ed, #f8f8f0 72%);
+  overflow: hidden;
+}
+.jd-ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  width: 100%;
+  text-align: left;
+  padding: 24px 28px;
+  color: #244338;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.jd-ai-icon {
+  display: grid;
+  place-items: center;
+  background: #dce8dc;
+  border: 1px solid #cbdacb;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  flex: 0 0 auto;
+}
+.jd-ai-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.jd-ai-heading strong {
+  font-size: 19px;
+  line-height: 1.4;
+}
+.jd-ai-heading > span:last-child {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #617265;
+}
+.jd-ai-kicker {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: #6c816d;
+}
+.jd-ai-toggle-label {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.jd-ai-chevron {
+  flex: 0 0 auto;
+  transition: transform 0.2s;
+}
+.jd-ai.is-open .jd-ai-chevron {
+  transform: rotate(180deg);
+}
+.jd-ai-body {
+  padding: 0 28px;
+}
+.jd-ai-body[hidden] {
+  display: none;
+}
+.jd-ai-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px 40px;
+  border-top: 1px solid #d6dfd4;
+  padding: 25px 0;
+}
+.jd-ai-group {
+  min-width: 0;
+}
+.jd-ai-group h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  font-size: 15px;
+  color: #254436;
+}
+.jd-ai-group h2 > span {
+  font-size: 10px;
+  font-weight: 500;
+  color: #80927e;
+}
+.jd-ai-group ul {
+  margin: 0;
+  padding-left: 17px;
+}
+.jd-ai-group li {
+  padding-left: 2px;
+  margin: 0 0 13px;
+  color: #3a5645;
+}
+.jd-ai-group li:last-child {
+  margin-bottom: 0;
+}
+.jd-ai-group li > p {
+  margin: 0 0 5px;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.jd-ai-evidence summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  color: #657b65;
+  font-size: 11px;
+  width: fit-content;
+  list-style: none;
+}
+.jd-ai-evidence summary::-webkit-details-marker {
+  display: none;
+}
+.jd-ai-evidence summary:hover {
+  text-decoration: underline;
+  color: #254436;
+}
+.jd-ai-evidence[open] > div {
+  margin-top: 9px;
+  background: #ffffff8a;
+  border-radius: 8px;
+  padding: 11px 13px;
+}
+.jd-ai-evidence div > span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #627561;
+}
+.jd-ai-evidence blockquote {
+  margin: 6px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid #c3d0be;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+  font-size: 12px;
+  color: #556253;
+}
+.jd-ai-empty {
+  margin: 0;
+  color: #758071;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.jd-ai-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid #d6dfd4;
+  padding: 17px 0;
+}
+.jd-ai-footer p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  color: #738170;
+  line-height: 1.6;
+}
+.jd-ai-footer p svg {
+  flex: 0 0 auto;
+}
+.jd-ai-footer a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #36563f;
+}
+.jd-ai-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 22px 0;
+  border-top: 1px solid #d6dfd4;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #5a705b;
+}
+.jd-ai-error {
+  padding: 20px 0 24px;
+  border-top: 1px solid #d6dfd4;
+}
+.jd-ai-error p {
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 6px;
+  color: #725b40;
+}
+.jd-ai-error p + p {
+  color: #738170;
+}
+.jd-ai-retry {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff8;
+  padding: 8px 13px;
+  border: 1px solid #cad7c6;
+  border-radius: 7px;
+  font-size: 12px;
+  color: #345b40;
+  cursor: pointer;
+}
+.jd-ai-toggle:focus-visible,
+.jd-ai-evidence summary:focus-visible,
+.jd-ai-retry:focus-visible,
+.jd-ai-footer a:focus-visible {
+  outline: 2px solid #577b55;
+  outline-offset: -3px;
+  border-radius: 7px;
+}
+.jd-ai-spin {
+  animation: jd-ai-spin 1.5s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes jd-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 700px) {
+  .job-detail-page .jd-ai {
+    margin: 18px 0 24px;
+    border-radius: 14px;
+  }
+  .jd-ai-toggle {
+    padding: 19px 17px;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .jd-ai-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+  .jd-ai-heading strong {
+    font-size: 16px;
+  }
+  .jd-ai-heading > span:last-child {
+    font-size: 12px;
+  }
+  .jd-ai-toggle-label {
+    display: none;
+  }
+  .jd-ai-chevron {
+    margin-top: 10px;
+  }
+  .jd-ai-body {
+    padding: 0 19px;
+  }
+  .jd-ai-groups {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 22px 0;
+  }
+  .jd-ai-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jd-ai-spin {
+    animation: none;
+  }
+  .jd-ai-chevron {
+    transition: none;
+  }
+}
