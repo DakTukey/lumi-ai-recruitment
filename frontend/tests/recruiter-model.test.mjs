@@ -11,18 +11,10 @@ async function moduleUrl(path, dependencies = {}) {
   for (const [name, url] of Object.entries(dependencies)) outputText = outputText.replace(name, url)
   return `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
 }
-const jobsUrl = await moduleUrl('../src/features/jobs/data/jobs.ts')
-const {
-  emptyDraft,
-  validateDraft,
-  salaryLabel,
-  expired,
-  jobFromDraft,
-  seedJobs,
-  seedApplications,
-} = await import(
-  await moduleUrl('../src/features/jobs/recruiter-model.ts', { './data/jobs': jobsUrl })
-)
+const jobsUrl = await moduleUrl('./fixtures/jobs.ts')
+const modelUrl = await moduleUrl('../src/features/jobs/recruiter-model.ts')
+const {emptyDraft,validateDraft,salaryLabel,expired} = await import(modelUrl)
+const {jobFromDraft,seedJobs,seedApplications} = await import(await moduleUrl('./fixtures/recruiter-data.ts', {'../../src/features/jobs/recruiter-model': modelUrl, './jobs': jobsUrl}))
 const { jobApplicationSummary } = await import(
   await moduleUrl('../src/features/jobs/job-candidates-model.ts')
 )
@@ -161,18 +153,18 @@ test('criteria reject blank descriptions and non-finite weights; sample applicat
   }
 })
 
-const modelUrl = await moduleUrl('../src/features/jobs/recruiter-model.ts', {
+const serviceModelUrl = await moduleUrl('../src/features/jobs/recruiter-model.ts', {
   './data/jobs': jobsUrl,
 })
 const apiStub =
   'data:text/javascript;base64,' +
   Buffer.from(
-    'export const get = () => {}; export const post = () => {}; export const put = () => {};',
+    'export const get = () => {}; export const post = () => {}; export const put = () => {}; export const upload = () => {};',
   ).toString('base64')
 const { createJobPayload } = await import(
   await moduleUrl('../src/services/recruiter-job.service.ts', {
     './api': apiStub,
-    '../features/jobs/recruiter-model': modelUrl,
+    '../features/jobs/recruiter-model': serviceModelUrl,
   })
 )
 test('real job request uses department UUID, DB codes, monthly VND and calendar deadline without lifecycle fields', () => {

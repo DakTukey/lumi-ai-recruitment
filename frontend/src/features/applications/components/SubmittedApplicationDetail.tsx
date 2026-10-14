@@ -1,3 +1,5 @@
+import { PdfDocumentViewer } from '../../resumes/PdfDocumentViewer'
+import { cvDocumentUrl, submittedPdfUrl } from '../../../services/resume.service'
 import { ApplicationAiStatus } from './ApplicationAiStatus'
 import { useEffect, useState } from 'react'
 import { SubmittedCvViewer } from '../../resumes/SubmittedCvViewer'
@@ -9,7 +11,9 @@ import {
 import type { SubmittedApplication } from '../../../services/application.service'
 import { ApplicationReviewActions } from './ApplicationReviewActions'
 import { AiAssessmentTab } from './AiAssessmentTab'
+import { ApplicationEmailComposer } from './ApplicationEmailComposer'
 import './applications.css'
+import '../../resumes/cv-pdf-import.css'
 const contracts: Record<string, string> = {
   FULL_TIME: 'Toàn thời gian',
   PART_TIME: 'Bán thời gian',
@@ -106,6 +110,7 @@ export function SubmittedApplicationDetail({
                 ['workflow', 'Chuyển vòng'],
                 ['notes', `Ghi chú (${app.review?.notes.length ?? 0})`],
                 ['ai', 'Đánh giá AI'],
+                ['email', 'Soạn email'],
               ]
             : []),
           ['history', 'Lịch sử'],
@@ -137,10 +142,31 @@ export function SubmittedApplicationDetail({
       )}
       {tab === 'cv' && (
         <>
-          <SubmittedCvViewer
-            draft={app.resumeSnapshot}
-            caption={`${app.resumeSnapshot.title} · Đã gửi ngày ${submittedDate(app.appliedAt)}. Thay đổi CV gốc không làm đổi bản này.`}
-          />
+          {app.submissionFormat === 'ORIGINAL_PDF' && app.sourceDocumentId ? (
+            <section className="cv-source-note">
+              <h3>PDF gốc ứng viên đã chọn gửi</h3>
+              <p>
+                Bản gốc được giữ cố định cùng đơn. Đánh giá AI dùng dữ liệu trích xuất từ tài liệu
+                này.
+              </p>
+              <a
+                href={staff ? submittedPdfUrl(app.id) : cvDocumentUrl(app.sourceDocumentId)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Mở PDF đã nộp
+              </a>
+              <PdfDocumentViewer
+                title="PDF gốc đã nộp"
+                url={staff ? submittedPdfUrl(app.id) : cvDocumentUrl(app.sourceDocumentId)}
+              />
+            </section>
+          ) : (
+            <SubmittedCvViewer
+              draft={app.resumeSnapshot}
+              caption={`${app.resumeSnapshot.title} · Đã gửi ngày ${submittedDate(app.appliedAt)}. Thay đổi CV gốc không làm đổi bản này.`}
+            />
+          )}
           {app.coverLetter && (
             <section className="submitted-jd">
               <h3>Thư ứng tuyển</h3>
@@ -222,6 +248,15 @@ export function SubmittedApplicationDetail({
           applicationId={app.id}
           jobSnapshot={app.jobSnapshot}
           onChanged={onChanged}
+        />
+      )}
+      {staff && tab === 'email' && (
+        <ApplicationEmailComposer
+          app={app}
+          onNoteAdded={() => {
+            setRetry((n) => n + 1)
+            onChanged?.()
+          }}
         />
       )}
       {tab === 'history' && (

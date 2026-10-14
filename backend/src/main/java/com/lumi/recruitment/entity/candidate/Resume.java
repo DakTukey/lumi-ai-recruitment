@@ -42,6 +42,9 @@ public class Resume {
     private List<ResumeSections.Award> awards = new ArrayList<>();
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition="jsonb", nullable=false)
     private List<ResumeSections.Activity> activities = new ArrayList<>();
+    @Column(name="source_document_id") private UUID sourceDocumentId;
+    @JdbcTypeCode(SqlTypes.JSON) @Column(name="extra_sections", columnDefinition="jsonb", nullable=false)
+    private List<ResumeSections.ExtraSection> extraSections = new ArrayList<>();
     @Column(nullable=false, length=20) private String template;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=20) private ResumeStatus status;
     @Column(name="is_default", nullable=false) private boolean defaultResume;

@@ -1,13 +1,15 @@
+import { PdfDocumentViewer } from '../../resumes/PdfDocumentViewer'
 import { ApplicationAiStatus } from './ApplicationAiStatus'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../../app/providers/auth-context'
 import { ApiError } from '../../../services/api'
 import { applyToJob, getApplications } from '../../../services/application.service'
-import { getMyResumes } from '../../../services/resume.service'
+import { cvDocumentUrl, getMyResumes } from '../../../services/resume.service'
 import { CvPreview } from '../../resumes/CvPreview'
 import type { Resume } from '../../../types/domain'
 import './applications.css'
+import '../../resumes/cv-pdf-import.css'
 import { jobApplicationPath } from '../../jobs/candidate-job-route'
 export function ApplyWithResume({
   jobId,
@@ -30,6 +32,7 @@ export function ApplyWithResume({
     error?: string
   } | null>(null)
   const [selected, setSelected] = useState('')
+  const [format, setFormat] = useState<'BUILDER' | 'ORIGINAL_PDF'>('BUILDER')
   const [letter, setLetter] = useState('')
   const [busy, setBusy] = useState(false)
   const saving = useRef(false)
@@ -125,7 +128,7 @@ export function ApplyWithResume({
     onBusy(true)
     setError('')
     try {
-      const application = await applyToJob(jobId, resume.id, resume.version, letter)
+      const application = await applyToJob(jobId, resume.id, resume.version, letter, format)
       setSubmittedId(application.id)
       setSubmitted(true)
       onSubmitted?.()
@@ -167,7 +170,7 @@ export function ApplyWithResume({
           aria-label="Chọn CV đã hoàn tất"
           value={selected}
           disabled={busy}
-          onChange={(e) => setSelected(e.target.value)}
+          onChange={(e) => {setSelected(e.target.value);setFormat('BUILDER')}}
         >
           {current.resumes.map((r) => (
             <option key={r.id} value={r.id}>
@@ -177,11 +180,19 @@ export function ApplyWithResume({
           ))}
         </select>
       </label>
+      {resume?.sourceDocumentId && <fieldset className="cv-source-choice"><legend>Chọn bản CV gửi cho HR</legend>
+        <label><input type="radio" name="submissionFormat" checked={format === 'BUILDER'} disabled={busy} onChange={() => setFormat('BUILDER')} />Bản đã chỉnh sửa trong app</label>
+        <label><input type="radio" name="submissionFormat" checked={format === 'ORIGINAL_PDF'} disabled={busy} onChange={() => setFormat('ORIGINAL_PDF')} />PDF gốc đã tải lên</label>
+        <p>{format === 'ORIGINAL_PDF' ? 'HR nhận đúng PDF gốc. Các chỉnh sửa trong app không nằm trong PDF. AI dùng nội dung trích xuất từ PDF này, kết quả có thể cần HR kiểm tra lại.' : 'HR nhận bản CV đã lưu trong app; PDF gốc không đính kèm đơn này.'}</p>
+      </fieldset>}
       {resume && (
         <details className="application-ready-preview" open>
           <summary>Xem lại CV sẽ gửi · {resume.title}</summary>
           <div className="submitted-cv">
-            <CvPreview draft={resume} skills={resume.skills} />
+            {format === 'ORIGINAL_PDF' && resume.sourceDocumentId ? <>
+              <a href={cvDocumentUrl(resume.sourceDocumentId)} target="_blank" rel="noreferrer">Mở PDF sẽ gửi</a>
+              <PdfDocumentViewer title="PDF sẽ gửi cho HR" url={cvDocumentUrl(resume.sourceDocumentId)} />
+            </> : <CvPreview draft={resume} skills={resume.skills} /> }
           </div>
         </details>
       )}

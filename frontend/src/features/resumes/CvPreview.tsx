@@ -467,6 +467,11 @@ export function CvPreview({
                 )}
               </Section>
             )}
+            {(draft.extraSections ?? []).map((section, index) => (
+              <Section key={`extra-${index}`} title={section.title || 'Mục bổ sung'}>
+                <Text>{section.content}</Text>
+              </Section>
+            ))}
             {(reviewer || !!activities.length) && (
               <Section title="Hoạt động">
                 {activities.map((item, index) => (

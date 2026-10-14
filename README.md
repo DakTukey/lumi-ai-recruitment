@@ -1,6 +1,8 @@
 # Lumi AI Recruitment System
 
-Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Generative AI - Google Gemini), tích hợp toàn diện từ quy trình tạo CV, xác thực chứng chỉ số, đối chiếu năng lực ứng viên đến quản lý tuyển dụng và gợi ý câu hỏi phỏng vấn chuyên sâu cho HR.
+Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Generative AI: Groq & Google Gemini), tích hợp toàn diện từ quy trình tạo CV, bóc tách CV từ PDF, xác thực chứng chỉ số, đối chiếu năng lực ứng viên đến quản lý tuyển dụng và gợi ý câu hỏi phỏng vấn chuyên sâu cho HR.
+
+> 📖 **Chi tiết kiến trúc, luồng hoạt động 7 tính năng AI và bộ câu hỏi vấn đáp: Xem tại [README_AI.md](README_AI.md)**
 
 ---
 

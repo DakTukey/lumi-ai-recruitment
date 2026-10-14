@@ -26,4 +26,6 @@ public record ResumeRequest(
         @Size(max=30) List<@NotNull @Valid Award> awards,
         @Size(max=30) List<@NotNull @Valid Activity> activities,
         @NotNull @Pattern(regexp="classic|modern") String template,
-        @NotNull ResumeStatus status, @PositiveOrZero Long version) {}
+        @NotNull ResumeStatus status, @PositiveOrZero Long version,
+        java.util.UUID sourceDocumentId,
+        @Size(max=30) List<@NotNull @Valid ExtraSection> extraSections) {}

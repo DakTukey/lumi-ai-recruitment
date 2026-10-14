@@ -11,4 +11,4 @@ public record ResumeDto(UUID id, UUID candidateId, String title, String fullName
         List<Education> educations, List<Project> projects, List<Certification> certifications,
         List<Language> languages, List<Award> awards, List<Activity> activities,
         String template, ResumeStatus status, boolean isDefault, long version,
-        Instant createdAt, Instant updatedAt) {}
+        Instant createdAt, Instant updatedAt, UUID sourceDocumentId, List<ExtraSection> extraSections) {}

@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> oversizedPdf(Exception error) {
+        return ResponseEntity.status(413).body(ApiResponse.error("Dung lượng PDF tối đa 10 MB."));
+    }
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
     public ResponseEntity<ApiResponse<Void>> concurrentUpdate(Exception error) {
         return ResponseEntity.status(409).body(ApiResponse.error("Tin vừa được người khác cập nhật. Hãy tải lại tin trước khi thao tác tiếp."));

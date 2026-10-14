@@ -16,18 +16,17 @@ const {
   recruiterUrl,
 } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
-test('job and application deep links restore the data mode, ID and selected tab', () => {
-  const job = new URL(recruiterJobUrl('job-123', true, 'ai'), 'http://localhost')
+test('job and application deep links restore ID and tab without sample mode', () => {
+  const job = new URL(recruiterJobUrl('job-123', 'ai'), 'http://localhost')
   assert.deepEqual(parseRecruiterRoute(job.pathname, job.search), {
     section: 'jobs',
     kind: 'job',
     id: 'job-123',
-    demo: true,
     tab: 'ai',
     filterJobId: '',
   })
   const application = new URL(
-    recruiterUrl('/recruiter/applications/app-1', false, { tab: 'notes' }),
+    recruiterUrl('/recruiter/applications/app-1', { tab: 'notes' }),
     'http://localhost',
   )
   assert.equal(parseRecruiterRoute(application.pathname, application.search).tab, 'notes')
@@ -43,18 +42,18 @@ test('return link preserves job scope and filters through refresh and sharing', 
   const from =
     '/recruiter/jobs/123?tab=applicants&stage=SUBMITTED&search=Minh+Anh&page=2&data=sample'
   const detail = new URL(
-    recruiterUrl('/recruiter/applications/app-1', true, { tab: 'ai', from }),
+    recruiterUrl('/recruiter/applications/app-1', { tab: 'ai', from }),
     'http://localhost',
   )
   const restored = new URL(
-    recruiterReturnUrl(detail.searchParams.get('from'), true),
+    recruiterReturnUrl(detail.searchParams.get('from')),
     'http://localhost',
   )
   assert.equal(restored.pathname, '/recruiter/jobs/123')
   for (const [key, value] of new URLSearchParams(from.split('?')[1]))
-    assert.equal(restored.searchParams.get(key), value)
+    assert.equal(restored.searchParams.get(key), key === 'data' ? null : value)
   const global = new URL(
-    recruiterReturnUrl('/recruiter/applications?jobId=123&stage=REVIEWING&search=Huy', false),
+    recruiterReturnUrl('/recruiter/applications?jobId=123&stage=REVIEWING&search=Huy'),
     'http://localhost',
   )
   assert.equal(parseRecruiterRoute(global.pathname, global.search).filterJobId, '123')
@@ -74,19 +73,19 @@ test('return destinations stay in HR lists and jobs and respect the current data
     '/recruiter/jobs/%',
     '/recruiter.evil.test',
   ]) {
-    assert.equal(recruiterReturnUrl(value, false), '/recruiter/applications')
+    assert.equal(recruiterReturnUrl(value), '/recruiter/applications')
   }
   assert.equal(
-    recruiterReturnUrl('/recruiter/jobs/123?data=sample&tab=ai', false),
+    recruiterReturnUrl('/recruiter/jobs/123?data=sample&tab=ai'),
     '/recruiter/jobs/123?tab=ai',
   )
   assert.equal(
-    new URL(recruiterReturnUrl('/recruiter/jobs/123', true), 'http://localhost').searchParams.get(
+    new URL(recruiterReturnUrl('/recruiter/jobs/123'), 'http://localhost').searchParams.get(
       'data',
     ),
-    'sample',
+    null,
   )
-  assert.equal(recruiterSectionUrl('jobs', false), '/recruiter/jobs')
+  assert.equal(recruiterSectionUrl('jobs'), '/recruiter/jobs')
   assert.equal(parseRecruiterRoute('/recruiter/').kind, 'section')
   assert.equal(parseRecruiterRoute('/recruiter/unknown').kind, 'missing')
 })

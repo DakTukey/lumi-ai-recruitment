@@ -1667,3 +1667,26 @@
     padding-block: 15px;
   }
 }
+.admin-live-stats {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  flex-wrap: wrap;
+}
+.admin-live-stats a {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--admin-border, #e5e7eb);
+  border-radius: 14px;
+  min-width: 180px;
+}
+.admin-live-stats strong {
+  font-size: 32px;
+}
+.admin-live-note {
+  padding: 16px 24px;
+  color: #69766e;
+  font-size: 13px;
+  line-height: 1.7;
+}

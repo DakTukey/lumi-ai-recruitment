@@ -1,20 +1,21 @@
-import { useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   FileText,
   FileUp,
-  Info,
+  Loader2,
   PencilLine,
   ShieldCheck,
   Sparkles,
   X,
 } from 'lucide-react'
-import { RecruiterJobForm } from './RecruiterJobForm'
-import { emptyDraft, jobWorkLocation } from '../recruiter-model'
-import type { JobDraft } from '../recruiter-model'
+import { useRef, useState } from 'react'
 import type { Department } from '../../../services/job.service'
+import type { JobDraft } from '../recruiter-model'
+import { emptyDraft, jobWorkLocation } from '../recruiter-model'
+import { RecruiterJobForm } from './RecruiterJobForm'
+import { parseJobDraft, generateJobDraft } from '../../../services/recruiter-job.service'
 
 type Method = 'manual' | 'import' | 'generate'
 const methods = [
@@ -32,7 +33,7 @@ const methods = [
     icon: FileUp,
     description: 'Dán nội dung hoặc chọn tài liệu để AI hỗ trợ điền thông tin tuyển dụng.',
     hint: 'Phù hợp khi đã có bản mô tả công việc.',
-    status: 'Chưa kết nối AI',
+    status: 'AI sẵn sàng',
   },
   {
     id: 'generate',
@@ -40,12 +41,10 @@ const methods = [
     icon: Sparkles,
     description: 'Cung cấp vị trí và vài yêu cầu chính để AI hỗ trợ soạn bản nháp.',
     hint: 'Phù hợp khi bạn mới có ý tưởng tuyển dụng.',
-    status: 'Chưa kết nối AI',
+    status: 'AI sẵn sàng',
   },
 ] as const
-
 export function RecruiterJobCreate({
-  demo,
   departments,
   departmentError,
   onCreateDepartment,
@@ -55,7 +54,6 @@ export function RecruiterJobCreate({
   onSave,
   onCancel,
 }: {
-  demo: boolean
   departments: Department[]
   departmentError: boolean
   onCreateDepartment: (name: string) => Promise<Department>
@@ -68,7 +66,7 @@ export function RecruiterJobCreate({
   const [method, setMethod] = useState<Method | null>(null)
   const [manualDraft, setManualDraft] = useState<JobDraft>(() => ({
     ...emptyDraft(),
-    ...(demo ? {} : { category: '', departmentId: '' }),
+    ...{ category: '', departmentId: '' },
   }))
   const [manualTouched, setManualTouched] = useState(false)
   const [source, setSource] = useState<'text' | 'file'>('text')
@@ -85,9 +83,82 @@ export function RecruiterJobCreate({
     requirements: '',
     tone: 'professional',
   })
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
   const current = methods.find((item) => item.id === method)
 
+  async function handleParseJd() {
+    if (source === 'file' && !file) {
+      setFileError('Vui lòng chọn một tệp JD.')
+      return
+    }
+    if (source === 'text' && !jd.trim()) {
+      setAiError('Vui lòng dán nội dung JD.')
+      return
+    }
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const parsed = await parseJobDraft({
+        file: source === 'file' ? file : null,
+        text: source === 'text' ? jd : undefined,
+      })
+      let matchedDeptId = parsed.departmentId
+      if (!matchedDeptId && departments.length > 0) {
+        matchedDeptId = departments[0].id
+      }
+      setManualDraft({
+        ...parsed,
+        departmentId: matchedDeptId,
+      })
+      setManualTouched(true)
+      onDirty()
+      setMethod('manual')
+    } catch (e: any) {
+      setAiError(
+        e.message ||
+          'Không thể phân tích JD bằng AI. Vui lòng kiểm tra lại tài liệu hoặc dán text.',
+      )
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function handleGenerateJd() {
+    if (!brief.title.trim()) {
+      setAiError('Vui lòng nhập tên chức danh hoặc vị trí.')
+      return
+    }
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const generated = await generateJobDraft({
+        title: brief.title,
+        level: brief.level || 'Middle',
+        location: brief.location || 'Đà Nẵng',
+        mode: brief.mode || 'Hybrid',
+        skills: brief.skills,
+        requirements: brief.requirements,
+        tone: brief.tone || 'professional',
+      })
+      let matchedDeptId = generated.departmentId
+      if (!matchedDeptId && departments.length > 0) {
+        matchedDeptId = departments[0].id
+      }
+      setManualDraft({
+        ...generated,
+        departmentId: matchedDeptId,
+      })
+      setManualTouched(true)
+      onDirty()
+      setMethod('manual')
+    } catch (e: any) {
+      setAiError(e.message || 'Không thể tạo JD bằng AI. Vui lòng thử lại sau.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
   function selectFile(next?: File) {
     setDragging(false)
     if (!next) return
@@ -128,7 +199,6 @@ export function RecruiterJobCreate({
     }
     setMethod('manual')
   }
-
   if (!method)
     return (
       <div className="hr-create-start">
@@ -170,21 +240,19 @@ export function RecruiterJobCreate({
           <div>
             <strong>Bạn kiểm tra và quyết định nội dung cuối cùng</strong>
             <p>
-              Bản nháp chưa hiển thị cho ứng viên. Các luồng AI hiện chỉ có giao diện nhập liệu.
+              Bản nháp chưa hiển thị cho ứng viên. Bạn có thể dùng AI để chuẩn bị nhanh nội dung rồi
+              hoàn thiện lại trong form.
             </p>
           </div>
         </div>
         <div className="hr-create-bottom">
-          <span>
-            {demo ? 'Đang tạo tin trong chế độ mẫu.' : 'Nhập thủ công đã hỗ trợ lưu bản nháp thật.'}
-          </span>
+          <span>Hỗ trợ nhập thủ công, nhập từ JD file/text hoặc AI tự động soạn thảo.</span>
           <button className="hr-button secondary" onClick={onCancel}>
             Hủy
           </button>
         </div>
       </div>
     )
-
   return (
     <div className="hr-create-flow">
       <div className="hr-create-flow-head">
@@ -195,7 +263,7 @@ export function RecruiterJobCreate({
         <button
           type="button"
           className="hr-text-button"
-          disabled={saving}
+          disabled={saving || aiLoading}
           onClick={() => setMethod(null)}
         >
           <ArrowLeft size={15} />
@@ -204,7 +272,6 @@ export function RecruiterJobCreate({
       </div>
       {method === 'manual' ? (
         <RecruiterJobForm
-          demo={demo}
           initialDraft={manualDraft}
           onDraftChange={setManualDraft}
           departments={departments}
@@ -221,13 +288,19 @@ export function RecruiterJobCreate({
         />
       ) : (
         <>
-          <div className="hr-ai-unavailable" role="note">
-            <Info size={19} />
+          {aiError && (
+            <div className="hr-form-error" role="alert" style={{ marginBottom: '1rem' }}>
+              <p>{aiError}</p>
+            </div>
+          )}
+          <div className="hr-ai-ready" role="note">
+            <Sparkles size={19} />
             <div>
-              <strong>Chưa kết nối AI</strong>
+              <strong>Trợ lý AI sẵn sàng hỗ trợ</strong>
               <p>
-                Bạn có thể thử giao diện nhập liệu. Chức năng phân tích tài liệu và tạo nội dung
-                chưa hoạt động.
+                {method === 'import'
+                  ? 'AI sẽ đọc tài liệu hoặc văn bản JD, tự động bóc tách kỹ năng, mô tả và tiêu chí đánh giá.'
+                  : 'AI sẽ viết bản thảo JD hoàn chỉnh dựa trên các thông tin tóm tắt bạn cung cấp.'}
               </p>
             </div>
           </div>
@@ -483,15 +556,42 @@ export function RecruiterJobCreate({
               <button
                 type="button"
                 className="hr-button"
-                disabled
-                aria-describedby="hr-ai-action-note"
+                disabled={
+                  aiLoading ||
+                  (method === 'import'
+                    ? source === 'file'
+                      ? !file
+                      : !jd.trim()
+                    : !brief.title.trim())
+                }
+                onClick={method === 'import' ? handleParseJd : handleGenerateJd}
               >
-                <Sparkles size={17} />
-                {method === 'import' ? 'Phân tích JD' : 'Tạo nội dung'}
+                {aiLoading ? (
+                  <>
+                    <Loader2 size={17} className="animate-spin" />
+                    {method === 'import'
+                      ? 'Đang phân tích JD qua AI…'
+                      : 'Đang soạn thảo JD qua AI…'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={17} />
+                    {method === 'import' ? 'Phân tích JD bằng AI' : 'Tạo nội dung bằng AI'}
+                  </>
+                )}
               </button>
-              <small id="hr-ai-action-note">Chưa kết nối AI</small>
+              <small id="hr-ai-action-note">
+                {method === 'import'
+                  ? 'AI sẽ đọc nội dung và tự động điền form để bạn xem lại'
+                  : 'AI sẽ tạo bản nháp đầy đủ kỹ năng & tiêu chí để bạn duyệt'}
+              </small>
             </div>
-            <button type="button" className="hr-button secondary" onClick={continueManually}>
+            <button
+              type="button"
+              className="hr-button secondary"
+              disabled={aiLoading}
+              onClick={continueManually}
+            >
               Tiếp tục nhập thủ công
               <ArrowRight size={16} />
             </button>

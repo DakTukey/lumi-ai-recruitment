@@ -95,5 +95,5 @@ export function del<T = void>(path: string): Promise<ApiResponse<T>> {
 }
 
 export function upload<T>(path: string, formData: FormData): Promise<ApiResponse<T>> {
-  return request<T>('POST', path, formData)
+  return request<T>('POST', path, formData, 65000)
 }

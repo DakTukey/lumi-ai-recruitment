@@ -45,6 +45,8 @@ public final class ResumeSections {
             @Pattern(regexp=MONTH) String issuedDate,
             @Size(max=2048) @Pattern(regexp=WEB_URL) String credentialUrl) {}
 
+    public record ExtraSection(@NotBlank @Size(max=255) String title,
+            @NotBlank @Size(max=12000) String content) {}
     public record Language(@Size(max=255) String name, @Size(max=255) String proficiency,
             @Size(max=255) String certification) {}
     public record Award(@Size(max=255) String title, @Size(max=255) String issuer,

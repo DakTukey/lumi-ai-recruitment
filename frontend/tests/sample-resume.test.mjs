@@ -4,7 +4,7 @@ import test from 'node:test'
 import ts from 'typescript'
 
 const source = await readFile(
-  new URL('../src/features/jobs/sample-resume.ts', import.meta.url),
+  new URL('./fixtures/sample-resume.ts', import.meta.url),
   'utf8',
 )
 const { outputText } = ts.transpileModule(source, {

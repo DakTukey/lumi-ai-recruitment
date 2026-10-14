@@ -37,7 +37,7 @@ public class AssessmentContext {
     public JsonNode resume(JsonNode source) {
         Map<String,Object> data=new TreeMap<>();
         for(String key:List.of("desiredPosition","summary","githubUrl","portfolioUrl")) data.put(key,source.path(key).asText(""));
-        for(String key:List.of("skills","experiences","educations","projects","certifications","languages","awards","activities"))
+        for(String key:List.of("skills","experiences","educations","projects","certifications","languages","awards","activities","extraSections"))
             data.put(key,source.path(key).isArray()?source.path(key):List.of());
         return mapper.valueToTree(data);
     }

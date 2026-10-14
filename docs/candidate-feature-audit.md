@@ -6,7 +6,7 @@ Ngày rà soát: 13/10/2026. Kiểm tra source hiện có, chạy lại build/te
 |---|---|---|
 | Tài khoản | Đã có luồng thật | Đăng ký, đăng nhập, đăng xuất, phiên và phân quyền CANDIDATE; chưa đổi/quên mật khẩu. |
 | Onboarding/hồ sơ | Đã lưu PostgreSQL | Khảo sát 3 bước, lưu tiến độ, bỏ qua/hoàn tất; sửa thông tin cá nhân, kỹ năng, định hướng, kinh nghiệm và hình thức làm việc. |
-| Tìm và xem việc | API thật + chế độ mẫu riêng | Khách được xem danh sách/chi tiết; tìm kiếm, phòng ban, kinh nghiệm, hình thức, lương, sắp xếp và tải thêm. Chỉ lấy tin đang công khai, chưa hết hạn và phòng ban hoạt động. |
+| Tìm và xem việc | API thật; đã bỏ chế độ mẫu giao diện | Khách được xem danh sách/chi tiết; tìm kiếm, phòng ban, kinh nghiệm, hình thức, lương, sắp xếp và tải thêm. Chỉ lấy tin đang công khai, chưa hết hạn và phòng ban hoạt động. |
 | Quản lý CV | Đã có luồng thật | Tạo nhiều CV, lưu nháp, mở lại, sửa, hoàn tất, mặc định, xóa; chặn xóa CV đã dùng nộp đơn; kiểm tra phiên bản. Preview chung HR/ứng viên, sáng/tối và in/lưu PDF từ trình duyệt. |
 | Trường CV | Đã nối lưu/preview | Giới thiệu, kỹ năng tags, ngoại ngữ, học vấn/GPA, kinh nghiệm, dự án/thời gian/công nghệ, chứng chỉ/link, giải thưởng, hoạt động. Gợi ý vị trí, trường, kỹ năng và đồng bộ từ profile. |
 | AI diễn đạt CV | Đã nối API | Viết rõ hơn, rút gọn, gạch đầu dòng cho giới thiệu/kinh nghiệm/dự án; duyệt, áp dụng, hoàn tác. Groq → Gemini. |
@@ -18,7 +18,7 @@ Ngày rà soát: 13/10/2026. Kiểm tra source hiện có, chạy lại build/te
 | AI tự phân tích đơn | Đã có worker/database/API | Đơn mới được đưa vào hàng đợi nguyên tử, dùng snapshot bất biến; dùng lại kết quả cùng CV/JD, retry có giới hạn, phục hồi lease. Ứng viên xem tiến độ/điểm/tóm tắt của mình; HR dùng báo cáo hiện có. Không tự thay đổi trạng thái tuyển dụng. |
 | So sánh CV với nhóm ứng tuyển | Đã có thống kê thật + UI | Phân vị, trung vị tổng/từng kỹ năng và ưu tiên cải thiện; cùng job/JD/model/cách chấm. Ít nhất 10 hồ sơ khác, từng kỹ năng ít nhất 5 hồ sơ có căn cứ. Không lộ CV/điểm cá nhân người khác, không dự báo xác suất trúng tuyển. Xem candidate-ai-benchmark.md. |
 | Việc làm đã lưu | Mới trạng thái giao diện | DemoProvider dùng useState, không database/localStorage, không theo tài khoản. F5 mất dữ liệu; đổi tài khoản cùng phiên có thể còn trạng thái cũ. |
-| Upload CV có sẵn | Chưa có backend | Chọn PDF tối đa 5MB chỉ hiển thị tên/kích thước; chưa upload, lưu file, parse PDF/DOCX hoặc dùng file đó ứng tuyển. |
+| Upload CV có sẵn | Đã có luồng PDF thật | Lưu PDF riêng tư tối đa 10MB/10 trang, AI trích xuất + mục bổ sung, đối chiếu bản gốc, tạo CV mới để sửa/lưu. Ứng tuyển chọn PDF gốc hoặc CV trên hệ thống; HR xem đúng bản nộp. Cache, retry có giới hạn; xem cv-pdf-import.md. Chưa hỗ trợ DOCX. |
 | Cài đặt | Chủ yếu placeholder | Thông tin tài khoản có thật; đổi mật khẩu, thông báo và quyền riêng tư ghi SẮP CÓ. |
 | Tính năng nâng cao | Chưa triển khai | Chat về JD, phỏng vấn AI/video thích ứng, giám sát gian lận, Skill Passport, gom bằng chứng GitHub, xác minh kỹ năng/chứng chỉ thực tế và theo dõi roadmap học tập. |
 
@@ -43,7 +43,7 @@ Ngày rà soát: 13/10/2026. Kiểm tra source hiện có, chạy lại build/te
 1. Lưu việc làm vào database theo tài khoản, có API thêm/xóa/danh sách.
 2. Theo dõi quota/độ ổn định nhà cung cấp trong demo; luồng AI CV–job và dự phòng đã được bổ sung.
 3. Cho ứng viên rút đơn với điều kiện trạng thái, lịch sử và bảo vệ phiên bản.
-4. Sau đó mới mở rộng upload/parse CV, thông báo hoặc các AI nâng cao.
+4. Hoàn thiện vận hành PDF (vision dự phòng, lưu trữ/xóa), thông báo và các AI nâng cao; luồng nhập PDF cơ bản đã có.
 
 ## Cập nhật hoàn thiện AI CV–job
 

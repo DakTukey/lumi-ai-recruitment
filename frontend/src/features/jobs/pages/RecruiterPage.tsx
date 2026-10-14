@@ -1,16 +1,3 @@
-import { SubmittedApplicationDetail } from '../../applications/components/SubmittedApplicationDetail'
-import { getApplicationSummary } from '../../../services/application.service'
-import type { ApplicationSummary } from '../../../services/application.service'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  parseRecruiterRoute,
-  recruiterJobUrl,
-  recruiterReturnUrl,
-  recruiterSectionUrl,
-  recruiterUrl,
-  type RecruiterSection as Section,
-} from '../recruiter-route'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -26,56 +13,52 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
-  Plus,
   Pencil,
-  UserRound,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
-  Sparkles,
+  UserRound,
   Users,
   X,
 } from 'lucide-react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../../app/providers/auth-context'
 import { Brand } from '../../../components/common/Brand'
 import { Modal } from '../../../components/ui/Modal'
-import { useAuth } from '../../../app/providers/auth-context'
 import { useDocumentTitle } from '../../../hooks/useDocumentTitle'
-import { getDepartments, getJobs } from '../../../services/job.service'
-import type { Department } from '../../../services/job.service'
-import type { Job, JobStatus } from '../../../types/domain'
-import type { PaginatedResponse } from '../../../types/api'
 import { ApiError } from '../../../services/api'
+import type { ApplicationSummary } from '../../../services/application.service'
+import { getApplicationSummary } from '../../../services/application.service'
+import type { Department } from '../../../services/job.service'
+import { getDepartments, getJobs } from '../../../services/job.service'
+import {
+  createRecruiterDepartment,
+  createRecruiterJob,
+  getRecruiterJob,
+  getRecruiterJobs,
+  transitionRecruiterJob,
+  updateRecruiterJob,
+} from '../../../services/recruiter-job.service'
+import type { PaginatedResponse } from '../../../types/api'
+import type { Job, JobStatus } from '../../../types/domain'
+import { SubmittedApplicationDetail } from '../../applications/components/SubmittedApplicationDetail'
+import { RecruiterApplications, Timeline } from '../components/RecruiterApplications'
 import { RecruiterJobForm } from '../components/RecruiterJobForm'
 import { RecruiterJobPreview } from '../components/RecruiterJobPreview'
+import { RecruiterRealProfile } from '../components/RecruiterRealProfile'
+import type { JobDraft, RecruiterJob } from '../recruiter-model'
+import { dateLabel, expired, initials, validateDraft } from '../recruiter-model'
 import {
-  ApplicationDetail,
-  RecruiterApplications,
-  Timeline,
-} from '../components/RecruiterApplications'
-import { RecruiterProfile } from '../components/RecruiterProfile'
-import {
-  seedJobs,
-  seedApplications,
-  initials,
-  normalize,
-  stageLabels,
-  dateLabel,
-  expired,
-  history,
-  jobFromDraft,
-  validateDraft,
-} from '../recruiter-model'
-import type { RecruiterJob, HrProfile, JobDraft, SampleApplication } from '../recruiter-model'
-import {
-  createRecruiterJob,
-  getRecruiterJobs,
-  getRecruiterJob,
-  createRecruiterDepartment,
-  updateRecruiterJob,
-  transitionRecruiterJob,
-} from '../../../services/recruiter-job.service'
+  parseRecruiterRoute,
+  recruiterJobUrl,
+  recruiterReturnUrl,
+  recruiterSectionUrl,
+  recruiterUrl,
+  type RecruiterSection as Section,
+} from '../recruiter-route'
 import '../styles/recruiter-workspace.css'
-
 const RecruiterJobCreate = lazy(() =>
   import('../components/RecruiterJobCreate').then((module) => ({
     default: module.RecruiterJobCreate,
@@ -102,13 +85,14 @@ export function RecruiterPage() {
   const navigateUrl = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const route = parseRecruiterRoute(location.pathname, location.search)
-  const { section, demo } = route
+  const { section } = route
+
   const selectedApplication = route.kind === 'application' ? route.id : ''
   const applicationTab = route.tab
   const detailTab = route.tab
   const applicationJobId = route.filterJobId
   const isDetail = route.kind !== 'section'
-  const backUrl = recruiterReturnUrl(searchParams.get('from'), demo)
+  const backUrl = recruiterReturnUrl(searchParams.get('from'))
   const returnRoute = parseRecruiterRoute(backUrl.split('?')[0], backUrl.split('?')[1])
   const activeSection = selectedApplication && returnRoute.kind === 'job' ? 'jobs' : section
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -123,7 +107,6 @@ export function RecruiterPage() {
     window.scrollTo(0, 0)
     headingRef.current?.focus()
   }, [location.pathname])
-  const [jobs, setJobs] = useState(seedJobs)
   const { user, signOut, isSigningOut } = useAuth()
   const [creating, setCreating] = useState(false)
   const [formDirty, setFormDirty] = useState(false)
@@ -131,18 +114,11 @@ export function RecruiterPage() {
   const [query, setQuery] = useState('')
   const [department, setDepartment] = useState('')
   const [status, setStatus] = useState('')
-  const [applications, setApplications] = useState(seedApplications)
   const [editingJob, setEditingJob] = useState<RecruiterJob | undefined>()
-  const [confirmJob, setConfirmJob] = useState<{ job: RecruiterJob; status: JobStatus } | null>(
-    null,
-  )
-  const [profile, setProfile] = useState<HrProfile>({
-    phone: '0900000099',
-    employeeCode: 'HR-DEMO-01',
-    jobTitle: 'Chuyên viên tuyển dụng',
-    department: 'Nhân sự',
-    avatarUrl: '',
-  })
+  const [confirmJob, setConfirmJob] = useState<{
+    job: RecruiterJob
+    status: JobStatus
+  } | null>(null)
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -159,7 +135,10 @@ export function RecruiterPage() {
     response: PaginatedResponse<Job> | null
     error: string
   }>({ key: '', response: null, error: '' })
-  const [summaryResult, setSummaryResult] = useState<{ key: string; total: number | null }>({
+  const [summaryResult, setSummaryResult] = useState<{
+    key: string
+    total: number | null
+  }>({
     key: '',
     total: null,
   })
@@ -170,25 +149,13 @@ export function RecruiterPage() {
     data?: RecruiterJob
     error?: string
   } | null>(null)
-  const jobDetailKey = `${demo}:${route.id}:${reload}`
+  const jobDetailKey = `${route.id}:${reload}`
   const currentJobDetail = jobDetail?.key === jobDetailKey ? jobDetail : null
-  const viewingJob =
-    route.kind === 'job'
-      ? demo
-        ? (jobs.find((item) => String(item.id) === route.id) ?? null)
-        : (currentJobDetail?.data ?? null)
-      : null
-  const viewLoading = route.kind === 'job' && !demo && !currentJobDetail
-  const viewError =
-    route.kind === 'job'
-      ? demo
-        ? viewingJob
-          ? ''
-          : 'Không tìm thấy tin tuyển dụng mẫu này.'
-        : (currentJobDetail?.error ?? '')
-      : ''
+  const viewingJob = route.kind === 'job' ? (currentJobDetail?.data ?? null) : null
+  const viewLoading = route.kind === 'job' && !currentJobDetail
+  const viewError = route.kind === 'job' ? (currentJobDetail?.error ?? '') : ''
   useEffect(() => {
-    if (demo || route.kind !== 'job') return
+    if (route.kind !== 'job') return
     let active = true
     getRecruiterJob(route.id)
       .then((data) => {
@@ -204,7 +171,7 @@ export function RecruiterPage() {
     return () => {
       active = false
     }
-  }, [demo, route.kind, route.id, jobDetailKey])
+  }, [route.kind, route.id, jobDetailKey])
   function setApplicationJobId(id: string) {
     setSearchParams(() => {
       const next = new URLSearchParams(window.location.search)
@@ -228,26 +195,15 @@ export function RecruiterPage() {
     navigateUrl(`${location.pathname}?${next}`)
   }
   const pageSize = section === 'overview' ? 4 : 8
-  const summaryKey = JSON.stringify([demo, reload])
-  const requestKey = JSON.stringify([
-    demo,
-    section,
-    query,
-    department,
-    status,
-    page,
-    pageSize,
-    reload,
-  ])
+  const summaryKey = JSON.stringify([reload])
+  const requestKey = JSON.stringify([section, query, department, status, page, pageSize, reload])
   const departments = departmentResult.key === summaryKey ? departmentResult.items : []
   const departmentError = departmentResult.key === summaryKey && departmentResult.error
   const publishedTotal = summaryResult.key === summaryKey ? summaryResult.total : null
   const loading = jobResult.key !== requestKey
   const response = loading ? null : jobResult.response
   const error = loading ? '' : jobResult.error
-
   useEffect(() => {
-    if (demo) return
     let cancelled = false
     getApplicationSummary()
       .then((data) => {
@@ -275,9 +231,9 @@ export function RecruiterPage() {
     return () => {
       cancelled = true
     }
-  }, [demo, reload, summaryKey])
+  }, [reload, summaryKey])
   useEffect(() => {
-    if (demo || isDetail || section === 'candidates' || section === 'profile') return
+    if (isDetail || section === 'candidates' || section === 'profile') return
     let cancelled = false
     const params = new URLSearchParams({
       page: String(page),
@@ -302,57 +258,24 @@ export function RecruiterPage() {
     return () => {
       cancelled = true
     }
-  }, [demo, isDetail, section, query, department, status, page, pageSize, reload, requestKey])
-
-  const ownJobs = jobs.filter((job) => job.company === 'Lumi Studio')
+  }, [isDetail, section, query, department, status, page, pageSize, reload, requestKey])
   const jobStatus = (job: Job): JobStatus => (job as RecruiterJob).status
-  const filteredDemoJobs = ownJobs.filter(
-    (job) =>
-      (!query || normalize(`${job.title} ${job.tags.join(' ')}`).includes(normalize(query))) &&
-      (!department || job.category === department) &&
-      (!status || jobStatus(job) === status),
-  )
-  const visibleJobs = demo
-    ? filteredDemoJobs.slice(page * pageSize, (page + 1) * pageSize)
-    : (response?.content ?? [])
-  const jobCount = demo ? filteredDemoJobs.length : (response?.totalElements ?? 0)
-  const totalPages = demo ? Math.ceil(jobCount / pageSize) : (response?.totalPages ?? 0)
-  const waiting = demo
-    ? applications.filter((item) => ['SUBMITTED', 'REVIEWING'].includes(item.stage)).length
-    : (applicationSummary?.stages.SUBMITTED ?? 0) + (applicationSummary?.stages.REVIEWING ?? 0)
-  const realSelected = !demo && !!selectedApplication
-  const selectedApplicant = demo
-    ? applications.find((item) => item.id === selectedApplication)
-    : undefined
+  const visibleJobs = response?.content ?? []
+  const jobCount = response?.totalElements ?? 0
+  const totalPages = response?.totalPages ?? 0
+  const waiting =
+    (applicationSummary?.stages.SUBMITTED ?? 0) + (applicationSummary?.stages.REVIEWING ?? 0)
+  const realSelected = !!selectedApplication
   function selectApplication(id: string, tab = 'cv') {
     navigateUrl(
-      recruiterUrl(`/recruiter/applications/${encodeURIComponent(id)}`, demo, {
+      recruiterUrl(`/recruiter/applications/${encodeURIComponent(id)}`, {
         tab,
         from: `${location.pathname}${location.search}`,
       }),
     )
   }
-  function updateApplication(application: SampleApplication) {
-    setApplications((previous) =>
-      previous.map((item) => (item.id === application.id ? application : item)),
-    )
-  }
   function allJobApplications() {
-    if (viewingJob) navigateUrl(recruiterJobUrl(String(viewingJob.id), demo, 'applicants'))
-  }
-  function showSampleJobs() {
-    switchMode(true, 'jobs')
-  }
-  function switchMode(next: boolean, nextSection: Section = section) {
-    navigateUrl(recruiterSectionUrl(nextSection, next))
-    resetNavigation()
-    setEditingJob(undefined)
-    setConfirmJob(null)
-    setCreating(false)
-    setFormDirty(false)
-    setDiscardForm(false)
-    setSaveError('')
-    setActionError('')
+    if (viewingJob) navigateUrl(recruiterJobUrl(String(viewingJob.id), 'applicants'))
   }
   function resetNavigation() {
     setPage(0)
@@ -363,19 +286,11 @@ export function RecruiterPage() {
   }
   function navigate(next: Section) {
     resetNavigation()
-    navigateUrl(recruiterSectionUrl(next, demo))
-  }
-  function showSample() {
-    navigateUrl(
-      recruiterUrl('/recruiter/applications/app-1', true, {
-        tab: 'ai',
-        from: recruiterSectionUrl('overview', true),
-      }),
-    )
+    navigateUrl(recruiterSectionUrl(next))
   }
   async function changeJobStatus(job: RecruiterJob, next: JobStatus) {
     if (saving) return
-    if (!demo) {
+    {
       setSaving(true)
       setActionError('')
       try {
@@ -401,33 +316,12 @@ export function RecruiterPage() {
       }
       return
     }
-    setJobs((previous) =>
-      previous.map((item) =>
-        item.id === job.id
-          ? {
-              ...item,
-              status: next,
-              updatedAt: new Date().toISOString(),
-              history: [
-                ...item.history,
-                history(
-                  `Chuyển tin sang ${statusLabels[next].toLowerCase()} trong bản mẫu.`,
-                  user?.fullName,
-                ),
-              ],
-            }
-          : item,
-      ),
-    )
-    setNotice(`“${job.title}” đã chuyển sang ${statusLabels[next].toLowerCase()} trong bản mẫu.`)
-    setConfirmJob(null)
-    setPage(0)
   }
   async function editJob(job: RecruiterJob) {
     if (openingJob || saving) return
     setActionError('')
     setSaveError('')
-    if (!demo) {
+    {
       setOpeningJob(true)
       try {
         job = await getRecruiterJob(String(job.id))
@@ -452,7 +346,6 @@ export function RecruiterPage() {
     setActionError('')
     setConfirmJob({ job, status: job.status === 'PUBLISHED' ? 'CLOSED' : 'PUBLISHED' })
   }
-
   function startCreate() {
     setEditingJob(undefined)
     setFormDirty(false)
@@ -469,27 +362,8 @@ export function RecruiterPage() {
     }))
     return saved
   }
-  async function saveDraft(draft: JobDraft, publish: boolean) {
+  async function saveDraft(draft: JobDraft) {
     if (saving) return
-    if (demo) {
-      const saved = jobFromDraft(draft, editingJob, publish, user?.fullName)
-      setJobs((previous) =>
-        editingJob
-          ? previous.map((item) => (item.id === saved.id ? saved : item))
-          : [saved, ...previous],
-      )
-      setCreating(false)
-      setFormDirty(false)
-      setDiscardForm(false)
-      setEditingJob(undefined)
-      if (route.kind !== 'job' || !editingJob) navigate('jobs')
-      setNotice(
-        publish
-          ? 'Đã đăng tin trong bản mẫu. Không xuất bản ra trang tìm việc.'
-          : 'Đã lưu nội dung tin mẫu trong phiên này.',
-      )
-      return
-    }
     setSaving(true)
     setSaveError('')
     try {
@@ -524,34 +398,27 @@ export function RecruiterPage() {
     }
   }
   function viewJob(job: Job, tab = 'content') {
-    navigateUrl(recruiterJobUrl(String(job.id), demo, tab))
+    navigateUrl(recruiterJobUrl(String(job.id), tab))
   }
-
   const jobPanel = (
     <section className="hr-panel" aria-labelledby="hr-jobs-heading">
       <div className="hr-panel-heading">
         <div>
-          <h2 id="hr-jobs-heading">{demo ? 'Tin tuyển dụng mẫu' : 'Tin tuyển dụng của công ty'}</h2>
-          <p>
-            {demo
-              ? 'Thử quản lý bản nháp, tin đang tuyển và tin đã đóng.'
-              : 'Bản nháp, tin đang tuyển và tin đã đóng của Lumi Studio.'}
-          </p>
+          <h2 id="hr-jobs-heading">{'Tin tuyển dụng của công ty'}</h2>
+          <p>{'Bản nháp, tin đang tuyển và tin đã đóng của Lumi Studio.'}</p>
         </div>
         {section === 'overview' ? (
           <button className="hr-text-button" onClick={() => navigate('jobs')}>
             Xem tất cả <ArrowRight size={16} />
           </button>
         ) : (
-          !demo && (
-            <button
-              className="hr-icon-button"
-              aria-label="Tải lại tin tuyển dụng"
-              onClick={() => setReload((value) => value + 1)}
-            >
-              <RefreshCw size={17} />
-            </button>
-          )
+          <button
+            className="hr-icon-button"
+            aria-label="Tải lại tin tuyển dụng"
+            onClick={() => setReload((value) => value + 1)}
+          >
+            <RefreshCw size={17} />
+          </button>
         )}
       </div>
       {section === 'jobs' && (
@@ -572,22 +439,18 @@ export function RecruiterPage() {
           <select
             aria-label="Lọc phòng ban"
             value={department}
-            disabled={!demo && departmentError}
+            disabled={departmentError}
             onChange={(event) => {
               setDepartment(event.target.value)
               setPage(0)
             }}
           >
             <option value="">Tất cả phòng ban</option>
-            {demo
-              ? [...new Set(ownJobs.map((job) => job.category))].map((name) => (
-                  <option key={name}>{name}</option>
-                ))
-              : departments.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
+            {departments.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
           </select>
           {
             <select
@@ -622,18 +485,18 @@ export function RecruiterPage() {
           )}
         </div>
       )}
-      {departmentError && !demo && section === 'jobs' && (
+      {departmentError && section === 'jobs' && (
         <p className="hr-filter-error">
           Không tải được phòng ban.{' '}
           <button onClick={() => setReload((value) => value + 1)}>Thử lại</button>
         </p>
       )}
-      {!demo && loading ? (
+      {loading ? (
         <div className="hr-empty" role="status">
           <LoaderCircle className="hr-spinner" size={25} />
           <p>Đang tải tin tuyển dụng…</p>
         </div>
-      ) : !demo && error ? (
+      ) : error ? (
         <div className="hr-empty" role="alert">
           <Info size={27} />
           <h3>Chưa tải được danh sách tin</h3>
@@ -687,15 +550,7 @@ export function RecruiterPage() {
                     {section === 'jobs' && (
                       <>
                         <td>
-                          {demo ? (
-                            <button
-                              className="hr-text-button"
-                              aria-label={`Xem hồ sơ cho ${job.title}`}
-                              onClick={() => void viewJob(job, 'applicants')}
-                            >
-                              {applications.filter((item) => item.jobId === String(job.id)).length}
-                            </button>
-                          ) : (
+                          {
                             <button
                               className="hr-text-button"
                               aria-label={`Xem hồ sơ cho ${job.title}`}
@@ -706,7 +561,7 @@ export function RecruiterPage() {
                                     ?.count ?? 0)
                                 : '—'}
                             </button>
-                          )}
+                          }
                         </td>
                         <td>
                           <span className={expired(job.deadline) ? 'hr-warning-text' : ''}>
@@ -733,7 +588,7 @@ export function RecruiterPage() {
                         </button>
                         {section === 'jobs' && (
                           <>
-                            {(demo || jobStatus(job) !== 'PUBLISHED') && (
+                            {jobStatus(job) !== 'PUBLISHED' && (
                               <button
                                 className="hr-icon-button"
                                 aria-label={`Sửa tin ${job.title}`}
@@ -798,18 +653,12 @@ export function RecruiterPage() {
             <BriefcaseBusiness size={27} />
           </span>
           <h3>
-            {query || department || status
-              ? 'Không có tin phù hợp'
-              : demo
-                ? 'Chưa có tin tuyển dụng mẫu'
-                : 'Chưa có tin tuyển dụng'}
+            {query || department || status ? 'Không có tin phù hợp' : 'Chưa có tin tuyển dụng'}
           </h3>
           <p>
             {query || department || status
               ? 'Thử đổi từ khóa hoặc bỏ bộ lọc để xem các tin khác.'
-              : demo
-                ? 'Tạo một tin mẫu để thử bố cục và nội dung.'
-                : 'Tạo bản nháp đầu tiên để chuẩn bị nội dung tuyển dụng.'}
+              : 'Tạo bản nháp đầu tiên để chuẩn bị nội dung tuyển dụng.'}
           </p>
           {query || department || status ? (
             <button
@@ -831,20 +680,19 @@ export function RecruiterPage() {
               }}
             >
               <FlaskConical size={16} />
-              {demo ? 'Tạo tin mẫu' : 'Tạo bản nháp'}
+              {'Tạo bản nháp'}
             </button>
           )}
         </div>
       )}
-      {!demo && (
+      {
         <div className="hr-panel-note">
           <Info size={14} />
           Bản nháp chỉ hiển thị trong khu vực HR. Tin đã đăng sẽ xuất hiện trên trang tìm việc.
         </div>
-      )}
+      }
     </section>
   )
-
   return (
     <div className="hr-workspace">
       <a className="hr-skip" href="#hr-content">
@@ -878,7 +726,6 @@ export function RecruiterPage() {
             >
               <item.icon size={19} />
               <span>{item.label}</span>
-              {demo && item.id === 'candidates' && <small>{applications.length}</small>}
             </button>
           ))}
         </nav>
@@ -916,23 +763,7 @@ export function RecruiterPage() {
             Tuyển dụng <ChevronRight size={14} />
             <strong>{nav.find((item) => item.id === activeSection)?.label}</strong>
           </div>
-          <div className="hr-mode-switch" role="group" aria-label="Nguồn dữ liệu">
-            <button
-              aria-pressed={!demo}
-              disabled={!demo || openingJob || saving}
-              onClick={() => switchMode(false)}
-            >
-              Dữ liệu thật
-            </button>
-            <button
-              aria-pressed={demo}
-              disabled={demo || openingJob || saving}
-              onClick={() => switchMode(true)}
-            >
-              <FlaskConical size={14} />
-              Xem mẫu
-            </button>
-          </div>
+
           <button
             className="hr-icon-button hr-mobile-logout"
             aria-label="Đăng xuất trên điện thoại"
@@ -968,9 +799,7 @@ export function RecruiterPage() {
               </h1>
               <p>
                 {isDetail
-                  ? demo
-                    ? 'Thông tin mẫu để trải nghiệm quy trình tuyển dụng.'
-                    : 'Thông tin tuyển dụng và hồ sơ đã lưu của công ty.'
+                  ? 'Thông tin tuyển dụng và hồ sơ đã lưu của công ty.'
                   : section === 'overview'
                     ? 'Theo dõi vị trí đang tuyển và hồ sơ cần xem xét.'
                     : section === 'jobs'
@@ -983,34 +812,25 @@ export function RecruiterPage() {
             <div className="hr-create">
               <button
                 className="hr-button"
-                title={demo ? 'Tạo bản nháp mẫu' : 'Tạo bản nháp tuyển dụng'}
+                title={'Tạo bản nháp tuyển dụng'}
                 disabled={openingJob || saving}
                 onClick={startCreate}
               >
                 <Plus size={17} />
-                {demo ? 'Tạo tin mẫu' : 'Tạo tin mới'}
+                {'Tạo tin mới'}
               </button>
             </div>
           </div>
-          <div className={`hr-source-note ${demo ? 'demo' : ''}`}>
-            <span className="hr-source-icon">
-              {demo ? <FlaskConical size={18} /> : <Info size={18} />}
-            </span>
+          <div className={`hr-source-note ${''}`}>
+            <span className="hr-source-icon">{<Info size={18} />}</span>
             <div>
-              <strong>
-                {demo ? 'Bạn đang xem dữ liệu mẫu' : 'Đang xem dữ liệu tuyển dụng thật'}
-              </strong>
+              <strong>{'Đang xem dữ liệu tuyển dụng thật'}</strong>
               <p>
-                {demo
-                  ? 'Tin, hồ sơ và phân tích chỉ để trải nghiệm. Thay đổi mất khi tải lại hoặc rời trang HR và không ảnh hưởng dữ liệu thật.'
-                  : 'Tin tuyển dụng, đơn ứng tuyển, ghi chú và chuyển vòng đã lưu thật. CV tại lúc nộp được giữ nguyên. Mở từng hồ sơ để phân tích AI và xem kết quả đã lưu.'}
+                {
+                  'Tin tuyển dụng, đơn ứng tuyển, ghi chú và chuyển vòng đã lưu thật. CV tại lúc nộp được giữ nguyên. Mở từng hồ sơ để phân tích AI và xem kết quả đã lưu.'
+                }
               </p>
             </div>
-            {demo && (
-              <button className="hr-text-button" onClick={() => switchMode(false)}>
-                Về dữ liệu thật <ArrowRight size={16} />
-              </button>
-            )}
           </div>
           {openingJob && <p role="status">Đang tải nội dung tin để chỉnh sửa…</p>}
           {actionError && !confirmJob && (
@@ -1036,35 +856,27 @@ export function RecruiterPage() {
               <div className="hr-stats">
                 <div className="hr-stat">
                   <span>
-                    Tin {demo ? 'đang tuyển mẫu' : 'đã công khai'}
+                    Tin {'đã công khai'}
                     <BriefcaseBusiness size={19} />
                   </span>
-                  <strong>
-                    {demo
-                      ? ownJobs.filter((job) => jobStatus(job) === 'PUBLISHED').length
-                      : (publishedTotal ?? '—')}
-                  </strong>
-                  <small>
-                    {demo ? 'Các vị trí trong bản trải nghiệm' : 'Đang hiển thị cho ứng viên'}
-                  </small>
+                  <strong>{publishedTotal ?? '—'}</strong>
+                  <small>{'Đang hiển thị cho ứng viên'}</small>
                 </div>
                 <div className="hr-stat">
                   <span>
-                    Hồ sơ {demo ? 'mẫu' : 'ứng tuyển'}
+                    Hồ sơ {'ứng tuyển'}
                     <Users size={19} />
                   </span>
-                  <strong>{demo ? applications.length : (applicationSummary?.total ?? '—')}</strong>
-                  <small>
-                    {demo ? 'Dữ liệu giả lập, chưa phải đơn thật' : 'Đơn đã lưu và CV tại lúc nộp'}
-                  </small>
+                  <strong>{applicationSummary?.total ?? '—'}</strong>
+                  <small>{'Đơn đã lưu và CV tại lúc nộp'}</small>
                 </div>
                 <div className="hr-stat">
                   <span>
                     Chờ xem xét
                     <Clock3 size={19} />
                   </span>
-                  <strong>{demo || applicationSummary ? waiting : '—'}</strong>
-                  <small>{demo ? 'Hồ sơ mẫu cần xem xét' : 'Hồ sơ đã nộp hoặc đang xem xét'}</small>
+                  <strong>{applicationSummary ? waiting : '—'}</strong>
+                  <small>{'Hồ sơ đã nộp hoặc đang xem xét'}</small>
                 </div>
               </div>
               <div className="hr-overview-grid">
@@ -1074,43 +886,11 @@ export function RecruiterPage() {
                     <div className="hr-panel-heading">
                       <div>
                         <h2>Hồ sơ cần xem xét</h2>
-                        <p>
-                          {demo ? `${waiting} hồ sơ mẫu đang chờ` : 'Theo dõi hồ sơ mới tại đây'}
-                        </p>
+                        <p>{'Theo dõi hồ sơ mới tại đây'}</p>
                       </div>
                       <Users size={18} />
                     </div>
-                    {demo ? (
-                      <div className="hr-candidate-preview">
-                        {applications
-                          .filter((candidate) =>
-                            ['SUBMITTED', 'REVIEWING'].includes(candidate.stage),
-                          )
-                          .map((candidate) => (
-                            <button
-                              key={candidate.name}
-                              onClick={() => {
-                                selectApplication(candidate.id)
-                              }}
-                            >
-                              <span className={`hr-avatar ${candidate.color}`}>
-                                {initials(candidate.name)}
-                              </span>
-                              <span>
-                                <strong>{candidate.name}</strong>
-                                <small>
-                                  {candidate.role} · {stageLabels[candidate.stage]}
-                                </small>
-                              </span>
-                              <ChevronRight size={16} />
-                            </button>
-                          ))}
-                        {waiting === 0 && <p>Đã xem xét hết hồ sơ mẫu.</p>}
-                        <button className="hr-text-button" onClick={() => navigate('candidates')}>
-                          Xem danh sách hồ sơ <ArrowRight size={16} />
-                        </button>
-                      </div>
-                    ) : (
+                    {
                       <div className="hr-aside-empty">
                         <FileText size={27} />
                         <p>
@@ -1127,18 +907,7 @@ export function RecruiterPage() {
                           Xem tất cả đơn ứng tuyển <ArrowRight size={16} />
                         </button>
                       </div>
-                    )}
-                  </section>
-                  <section className="hr-ai-card">
-                    <span className="hr-ai-icon">
-                      <Sparkles size={21} />
-                    </span>
-                    <span className="hr-chip">BẢN MẪU</span>
-                    <h2>Đối chiếu CV với yêu cầu công việc</h2>
-                    <p>Xem ví dụ về kỹ năng phù hợp, bằng chứng và những điểm cần làm rõ.</p>
-                    <button className="hr-text-button" onClick={() => showSample()}>
-                      Xem phân tích mẫu <ArrowUpRight size={16} />
-                    </button>
+                    }
                   </section>
                 </aside>
               </div>
@@ -1148,31 +917,17 @@ export function RecruiterPage() {
           {!isDetail && section === 'candidates' && (
             <RecruiterApplications
               refreshKey={reload}
-              applications={applications}
-              jobs={jobs}
-              demo={demo}
-              key={String(demo)}
               jobId={applicationJobId}
               onJobId={setApplicationJobId}
               onSelect={selectApplication}
-              onSample={() => switchMode(true)}
             />
           )}
-          {!isDetail && section === 'profile' && (
-            <RecruiterProfile
-              key={String(demo)}
-              user={user}
-              demo={demo}
-              profile={profile}
-              onSave={setProfile}
-              onSample={() => switchMode(true)}
-            />
-          )}
+          {!isDetail && section === 'profile' && <RecruiterRealProfile />}
           {isDetail && (
             <div className="hr-detail-navigation">
               <Link
                 className="hr-text-button"
-                to={selectedApplication ? backUrl : recruiterSectionUrl('jobs', demo)}
+                to={selectedApplication ? backUrl : recruiterSectionUrl('jobs')}
               >
                 <ChevronLeft size={16} />
                 {selectedApplication
@@ -1186,7 +941,7 @@ export function RecruiterPage() {
                   : 'Quay lại danh sách tin'}
               </Link>
               {selectedApplication && (
-                <Link className="hr-text-button" to={recruiterSectionUrl('candidates', demo)}>
+                <Link className="hr-text-button" to={recruiterSectionUrl('candidates')}>
                   Tất cả đơn ứng tuyển <ArrowRight size={16} />
                 </Link>
               )}
@@ -1197,14 +952,14 @@ export function RecruiterPage() {
             <section className="hr-panel hr-detail-error" role="alert">
               <h2>Không mở được tin tuyển dụng</h2>
               <p>{viewError}</p>
-              {!demo && (
+              {
                 <button
                   className="hr-button secondary"
                   onClick={() => setReload((value) => value + 1)}
                 >
                   Thử lại
                 </button>
-              )}
+              }
             </section>
           )}
           {viewingJob && (
@@ -1240,29 +995,17 @@ export function RecruiterPage() {
                 </p>
               )}
               {detailTab === 'content' && (
-                <RecruiterJobPreview job={viewingJob} internal showHeading={false} />
+                <RecruiterJobPreview job={viewingJob} internal showHeading />
               )}
-              {detailTab === 'history' && (
-                <Timeline
-                  items={
-                    demo
-                      ? [...(viewingJob as RecruiterJob).history].reverse()
-                      : (viewingJob as RecruiterJob).history
-                  }
-                />
-              )}
+              {detailTab === 'history' && <Timeline items={(viewingJob as RecruiterJob).history} />}
               {detailTab === 'applicants' && (
                 <>
                   <RecruiterApplications
                     refreshKey={reload}
-                    applications={applications}
-                    jobs={[viewingJob as RecruiterJob]}
-                    demo={demo}
                     jobId={String(viewingJob.id)}
                     onJobId={() => {}}
                     lockedJob
                     onSelect={selectApplication}
-                    onSample={showSampleJobs}
                   />
                 </>
               )}
@@ -1270,35 +1013,30 @@ export function RecruiterPage() {
                 <Suspense fallback={<p role="status">Đang mở tổng hợp ứng viên…</p>}>
                   <RecruiterJobCandidates
                     refreshKey={reload}
-                    applications={applications}
                     jobId={String(viewingJob.id)}
                     title={viewingJob.title}
-                    demo={demo}
                     onSelect={selectApplication}
                     onAll={allJobApplications}
-                    onSample={showSampleJobs}
                   />
                 </Suspense>
               )}
               <div className="hr-detail-actions">
                 <p>
-                  {demo
-                    ? 'Dữ liệu mẫu, chỉ thay đổi trong phiên này.'
-                    : jobStatus(viewingJob) === 'PUBLISHED'
-                      ? 'Tin đang công khai. Đóng tin trước khi chỉnh sửa nội dung.'
-                      : jobStatus(viewingJob) === 'CLOSED'
-                        ? 'Tin đã đóng. Có thể sửa nội dung trước khi mở lại.'
-                        : 'Bản nháp chưa hiển thị cho ứng viên. Kiểm tra nội dung trước khi đăng.'}
+                  {jobStatus(viewingJob) === 'PUBLISHED'
+                    ? 'Tin đang công khai. Đóng tin trước khi chỉnh sửa nội dung.'
+                    : jobStatus(viewingJob) === 'CLOSED'
+                      ? 'Tin đã đóng. Có thể sửa nội dung trước khi mở lại.'
+                      : 'Bản nháp chưa hiển thị cho ứng viên. Kiểm tra nội dung trước khi đăng.'}
                 </p>
                 <div className="hr-row-actions">
-                  {(demo || jobStatus(viewingJob) !== 'PUBLISHED') && (
+                  {jobStatus(viewingJob) !== 'PUBLISHED' && (
                     <button
                       className="hr-button secondary"
                       disabled={openingJob || viewLoading || !!viewError}
                       onClick={() => void editJob(viewingJob as RecruiterJob)}
                     >
                       <Pencil size={16} />
-                      {demo ? 'Sửa tin mẫu' : 'Sửa nội dung'}
+                      {'Sửa nội dung'}
                     </button>
                   )}
                   <button
@@ -1307,16 +1045,10 @@ export function RecruiterPage() {
                     onClick={() => requestStatus(viewingJob as RecruiterJob)}
                   >
                     {jobStatus(viewingJob) === 'PUBLISHED'
-                      ? demo
-                        ? 'Đóng tin mẫu'
-                        : 'Đóng tin'
+                      ? 'Đóng tin'
                       : jobStatus(viewingJob) === 'CLOSED'
-                        ? demo
-                          ? 'Mở lại tin mẫu'
-                          : 'Mở lại tin'
-                        : demo
-                          ? 'Đăng tin mẫu'
-                          : 'Đăng tin'}
+                        ? 'Mở lại tin'
+                        : 'Đăng tin'}
                   </button>
                 </div>
               </div>
@@ -1334,28 +1066,7 @@ export function RecruiterPage() {
               />
             </section>
           )}
-          {selectedApplicant && (
-            <section
-              className="hr-detail-page hr-application-page"
-              aria-label={`Hồ sơ mẫu · ${selectedApplicant.name}`}
-            >
-              <ApplicationDetail
-                key={selectedApplicant.id}
-                application={selectedApplicant}
-                job={jobs.find((job) => String(job.id) === selectedApplicant.jobId)}
-                actor={user?.fullName ?? 'Nhân sự mẫu'}
-                initialTab={applicationTab}
-                onTabChange={setApplicationTab}
-                onUpdate={updateApplication}
-              />
-            </section>
-          )}
-          {demo && selectedApplication && !selectedApplicant && (
-            <section className="hr-panel" role="alert">
-              <h2>Không tìm thấy hồ sơ mẫu</h2>
-              <p>Hồ sơ không tồn tại trong dữ liệu mẫu hiện tại.</p>
-            </section>
-          )}
+
           {route.kind === 'missing' && (
             <section className="hr-panel" role="alert">
               <p>
@@ -1365,21 +1076,13 @@ export function RecruiterPage() {
           )}
           <footer className="hr-footer">
             <span>Lumi Studio · Không gian nhà tuyển dụng</span>
-            <span>{demo ? 'Chế độ trải nghiệm' : 'Tin tuyển dụng · Lưu database'}</span>
+            <span>{'Tin tuyển dụng · Lưu database'}</span>
           </footer>
         </main>
       </div>
       {creating && (
         <Modal
-          title={
-            !demo
-              ? editingJob
-                ? 'Chỉnh sửa tin tuyển dụng'
-                : 'Tạo tin tuyển dụng'
-              : editingJob
-                ? 'Chỉnh sửa tin mẫu'
-                : 'Tạo tin tuyển dụng mẫu'
-          }
+          title={editingJob ? 'Chỉnh sửa tin tuyển dụng' : 'Tạo tin tuyển dụng'}
           wide
           onClose={() => {
             if (!saving) {
@@ -1414,26 +1117,24 @@ export function RecruiterPage() {
               <RecruiterJobForm
                 onDirty={() => setFormDirty(true)}
                 job={editingJob}
-                demo={demo}
                 departments={departments}
                 departmentError={departmentError}
                 onCreateDepartment={addDepartment}
                 saving={saving}
                 saveError={saveError}
-                onSave={(draft, publish) => void saveDraft(draft, publish)}
+                onSave={(draft) => void saveDraft(draft)}
                 onCancel={() => (formDirty ? setDiscardForm(true) : setCreating(false))}
               />
             ) : (
               <Suspense fallback={<p role="status">Đang mở các cách tạo tin…</p>}>
                 <RecruiterJobCreate
-                  demo={demo}
                   departments={departments}
                   departmentError={departmentError}
                   onCreateDepartment={addDepartment}
                   saving={saving}
                   saveError={saveError}
                   onDirty={() => setFormDirty(true)}
-                  onSave={(draft, publish) => void saveDraft(draft, publish)}
+                  onSave={(draft) => void saveDraft(draft)}
                   onCancel={() => (formDirty ? setDiscardForm(true) : setCreating(false))}
                 />
               </Suspense>
@@ -1443,7 +1144,7 @@ export function RecruiterPage() {
       )}
       {confirmJob && (
         <Modal
-          title={`${confirmJob.status === 'CLOSED' ? 'Đóng' : confirmJob.job.status === 'CLOSED' ? 'Mở lại' : 'Đăng'} tin${demo ? ' mẫu' : ''}?`}
+          title={`${confirmJob.status === 'CLOSED' ? 'Đóng' : confirmJob.job.status === 'CLOSED' ? 'Mở lại' : 'Đăng'} tin${''}?`}
           onClose={() => {
             if (!saving) {
               setConfirmJob(null)
@@ -1455,12 +1156,8 @@ export function RecruiterPage() {
             <h2>{confirmJob.job.title}</h2>
             <p>
               {confirmJob.status === 'CLOSED'
-                ? demo
-                  ? 'Tin sẽ chuyển sang đã đóng trong bản mẫu. Các hồ sơ hiện có vẫn được giữ.'
-                  : 'Tin sẽ ẩn khỏi trang tìm việc. Nội dung và lịch sử vẫn được giữ.'
-                : demo
-                  ? 'Tin sẽ chuyển sang đang tuyển trong bản mẫu. Không xuất bản công khai hoặc gửi thông báo.'
-                  : 'Tin sẽ công khai trên trang tìm việc. Hãy kiểm tra nội dung và hạn nhận hồ sơ trước khi xác nhận.'}
+                ? 'Tin sẽ ẩn khỏi trang tìm việc. Nội dung và lịch sử vẫn được giữ.'
+                : 'Tin sẽ công khai trên trang tìm việc. Hãy kiểm tra nội dung và hạn nhận hồ sơ trước khi xác nhận.'}
             </p>
             {actionError && (
               <p className="hr-form-error" role="alert">
@@ -1505,7 +1202,7 @@ export function RecruiterPage() {
                 >
                   {saving
                     ? 'Đang xử lý…'
-                    : `Xác nhận ${confirmJob.status === 'CLOSED' ? 'đóng' : confirmJob.job.status === 'CLOSED' ? 'mở lại' : 'đăng'} tin${demo ? ' mẫu' : ''}`}
+                    : `Xác nhận ${confirmJob.status === 'CLOSED' ? 'đóng' : confirmJob.job.status === 'CLOSED' ? 'mở lại' : 'đăng'} tin${''}`}
                 </button>
               </div>
             )}

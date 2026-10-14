@@ -41,6 +41,8 @@ export function validateCv(draft: ResumeInput): CvIssue[] {
   if (draft.phone?.trim() && !/^[0-9+().\s-]+$/.test(draft.phone.trim()))
     add('phone', 0, 'Số điện thoại chỉ gồm số, khoảng trắng và các dấu + ( ) . - .')
   for (const key of ['githubUrl', 'linkedinUrl', 'portfolioUrl'] as const) url(draft[key], key, 0)
+  if ((draft.extraSections ?? []).some(s => !s.title.trim() || !s.content.trim() || s.title.length > 255 || s.content.length > 12000))
+    add('extraSections', 3, 'Mục bổ sung cần tiêu đề và nội dung, tối đa 255/12000 ký tự.')
   if (draft.skills.length > 100 || draft.skills.some((s) => !s.trim() || s.length > 100))
     add('skills', 1, 'Tối đa 100 kỹ năng; mỗi kỹ năng từ 1 đến 100 ký tự.')
   const groups = [

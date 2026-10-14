@@ -1,6 +1,6 @@
-import { ArrowUpRight, Bookmark, MapPin, Clock3, Sparkles } from 'lucide-react'
-import { useDemo } from '../../../app/providers/demo-context'
+import { ArrowUpRight, Bookmark, Clock3, MapPin, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useSavedJobs } from '../../../app/providers/saved-jobs-context'
 import type { Job } from '../../../types/domain'
 export function CompanyMark({ job }: { job: Pick<Job, 'mark' | 'color'> }) {
   return <span className={`company-mark ${job.color}`}>{job.mark}</span>
@@ -16,7 +16,7 @@ export function JobCard({
   navigationState: { listKey: string; fromList: string }
   onNavigate: () => void
 }) {
-  const { saved, toggleSaved } = useDemo()
+  const { saved, toggleSaved } = useSavedJobs()
   const isSaved = saved.includes(job.id)
   return (
     <article className="job-card">
@@ -40,7 +40,6 @@ export function JobCard({
         <ArrowUpRight size={19} />
       </Link>
       <div className="job-meta">
-        {job.source !== 'database' && <span className="job-sample-badge">Tin mẫu</span>}
         <span>
           <MapPin size={13} />
           {job.mode}

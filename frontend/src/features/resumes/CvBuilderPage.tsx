@@ -1,3 +1,4 @@
+import { PdfDocumentViewer } from './PdfDocumentViewer'
 import { jobApplicationPath, jobMatchPath } from '../jobs/candidate-job-route'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -6,6 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Eye,
   FileText,
   GraduationCap,
   Plus,
@@ -23,6 +25,8 @@ import {
   getResumePositionOptions,
   getResumeSkillOptions,
   getResumeUniversityOptions,
+  getCvDocument,
+  cvDocumentUrl,
 } from '../../services/resume.service'
 import type { ResumeInput, UniversityOption } from '../../services/resume.service'
 import { ApiError } from '../../services/api'
@@ -36,11 +40,12 @@ import type {
   ResumeAward,
   ResumeActivity,
 } from '../../types/domain'
+import { CvPdfImport } from './CvPdfImport'
+import { importedDraft } from './pdf-import-model'
 import { CvPreview } from './CvPreview'
 import { CvReviewAssistant } from './CvReviewAssistant'
 import { cvReviewContext, reviewFingerprint, withReviewText } from './cv-review-model'
 import { CvWritingAssistant } from './CvWritingAssistant'
-import { CvWritingExamples } from './CvWritingExamples'
 import type { CvWritingSection } from '../../services/cv-writing.service'
 import { getJobById } from '../../services/job.service'
 import { CvPositionField } from './CvPositionField'
@@ -1028,8 +1033,10 @@ export function CvBuilderPage() {
   const jobId = params.get('jobId')
   return (
     <CvBuilderEditor
-      key={`${id ?? 'new'}:${jobId ?? ''}`}
+      key={`${id ?? 'new'}:${jobId ?? ''}:${params.get('documentId') ?? ''}`}
       id={id}
+      documentId={params.get('documentId')}
+      startImport={params.get('import') === 'pdf'}
       jobId={jobId}
       returnToMatch={params.get('returnTo') === 'match'}
       initialResume={createdResume?.id === id ? createdResume : null}
@@ -1044,6 +1051,8 @@ export function CvBuilderPage() {
 }
 
 function CvBuilderEditor({
+  documentId,
+  startImport,
   id,
   jobId,
   initialResume,
@@ -1052,6 +1061,8 @@ function CvBuilderEditor({
   step,
   onStepChange,
 }: {
+  documentId: string | null
+  startImport: boolean
   id: string | null
   jobId: string | null
   initialResume: Resume | null
@@ -1133,6 +1144,7 @@ function CvBuilderEditor({
     message: string
     type: 'success' | 'error'
   } | null>(null)
+  const [showPdfImport, setShowPdfImport] = useState(startImport)
 
   const fillFromProfile = async () => {
     if (syncingProfile) return
@@ -1232,7 +1244,9 @@ function CvBuilderEditor({
           ? Promise.resolve(initialResume)
           : id
             ? getResume(id)
-            : getProfile(),
+            : documentId
+              ? getCvDocument(documentId)
+              : getProfile(),
         jobId ? getJobById(jobId) : Promise.resolve(null),
       ])
       if (!active) return
@@ -1247,6 +1261,18 @@ function CvBuilderEditor({
       if (data.status === 'rejected') throw data.reason
       // A just-created CV is already editable. Late job metadata must not overwrite edits.
       if (initialResume && retry === 0) return
+      if (documentId && !id) {
+        const document = data.value as Awaited<ReturnType<typeof getCvDocument>>
+        if (!document.parsed || document.status !== 'PARSED')
+          throw new Error('PDF chưa được xử lý. Hãy mở Nhập từ PDF để tiếp tục.')
+        setDraft(importedDraft(document))
+        setNotice(
+          'CV mới từ PDF. Hãy đối chiếu bản gốc, sửa các trường và lưu khi đã kiểm tra. CV cũ vẫn được giữ riêng.',
+        )
+        setDirty(true)
+        setLoading(false)
+        return
+      }
       if (id) {
         const saved = data.value as Resume
         setDraft(saved)
@@ -1282,7 +1308,7 @@ function CvBuilderEditor({
     return () => {
       active = false
     }
-  }, [id, jobId, initialResume, retry])
+  }, [id, jobId, documentId, initialResume, retry])
   useEffect(() => {
     if (!dirty) return
     const warn = (event: BeforeUnloadEvent) => {
@@ -1381,6 +1407,8 @@ function CvBuilderEditor({
       awards: awards.filter(hasResumeEntryContent),
       activities: activities.filter(hasResumeEntryContent),
       version,
+      sourceDocumentId: draft.sourceDocumentId,
+      extraSections: draft.extraSections ?? [],
       skills: mergeSkills([], skills).skills,
       template: 'modern',
       status,
@@ -1569,6 +1597,14 @@ function CvBuilderEditor({
             )}
             <button
               type="button"
+              className="button cv-pdf-import-button"
+              disabled={loading || busy}
+              onClick={() => setShowPdfImport(true)}
+            >
+              <Sparkles size={16} /> Nhập từ PDF vào CV mới
+            </button>
+            <button
+              type="button"
               className="button secondary"
               disabled={loading || !!loadError || busy || syncingProfile || !draft.title.trim()}
               onClick={() => void save('DRAFT')}
@@ -1586,8 +1622,45 @@ function CvBuilderEditor({
               <Printer size={16} />
               In / Lưu PDF
             </button>
+            <button
+              type="button"
+              className="button secondary cv-view-toggle-button"
+              onClick={() => {
+                if (window.innerWidth <= 1100) {
+                  changeMobilePane(mobilePane === 'preview' ? 'edit' : 'preview')
+                } else {
+                  document
+                    .getElementById(`${paneId}-preview`)
+                    ?.scrollIntoView({ behavior: 'smooth' })
+                }
+              }}
+              title="Xem trước định dạng CV hoàn chỉnh"
+            >
+              <Eye size={16} />
+              {mobilePane === 'preview' ? 'Sửa form' : 'Xem trước CV'}
+            </button>
           </div>
         </div>
+        {showPdfImport && <CvPdfImport jobId={jobId} onClose={() => setShowPdfImport(false)} />}
+        {draft.sourceDocumentId && (
+          <section className="cv-source-note">
+            <strong>CV này được nhập từ PDF</strong>
+            <p>
+              Đối chiếu tên, thông tin liên hệ, thời gian và các mục bổ sung trước khi hoàn tất.
+              Chỉnh sửa trong form không thay đổi PDF gốc.
+            </p>
+            <details>
+              <summary>Xem PDF gốc để đối chiếu</summary>
+              <a href={cvDocumentUrl(draft.sourceDocumentId)} target="_blank" rel="noreferrer">
+                Mở PDF gốc trong tab mới
+              </a>
+              <PdfDocumentViewer
+                title="PDF gốc của CV"
+                url={cvDocumentUrl(draft.sourceDocumentId)}
+              />
+            </details>
+          </section>
+        )}
         {loading ? (
           <p role="status">Đang tải thông tin CV…</p>
         ) : loadError ? (
@@ -1786,7 +1859,6 @@ function CvBuilderEditor({
                     <h2>Giới thiệu bản thân</h2>
                     <div className="cv-builder-fields">{renderFields('summary')}</div>
                   </section>
-                  <CvWritingExamples />
                   <section className="cv-builder-control-card">
                     <h2>Kỹ năng chuyên môn</h2>
                     <p className="cv-builder-field-note">
@@ -2065,6 +2137,70 @@ function CvBuilderEditor({
                       },
                     ]}
                   />
+                  <section className="cv-builder-control-card" aria-label="Mục bổ sung">
+                    <h3>Mục bổ sung</h3>
+                    <p>Nghiên cứu, bằng sáng chế, người giới thiệu hoặc nội dung khác trong CV.</p>
+                    {(draft.extraSections ?? []).map((item, index) => (
+                      <div key={index} className="cv-extra-entry">
+                        <label>
+                          Tiêu đề
+                          <input
+                            maxLength={255}
+                            value={item.title}
+                            onChange={(e) =>
+                              update(
+                                'extraSections',
+                                (draft.extraSections ?? []).map((v, i) =>
+                                  i === index ? { ...v, title: e.target.value } : v,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label>
+                          Nội dung
+                          <textarea
+                            rows={5}
+                            maxLength={12000}
+                            value={item.content}
+                            onChange={(e) =>
+                              update(
+                                'extraSections',
+                                (draft.extraSections ?? []).map((v, i) =>
+                                  i === index ? { ...v, content: e.target.value } : v,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() =>
+                            update(
+                              'extraSections',
+                              (draft.extraSections ?? []).filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          Xóa mục
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={(draft.extraSections?.length ?? 0) >= 30}
+                      onClick={() =>
+                        update('extraSections', [
+                          ...(draft.extraSections ?? []),
+                          { title: '', content: '' },
+                        ])
+                      }
+                    >
+                      Thêm mục bổ sung
+                    </button>
+                  </section>
                   <section
                     id="cv-final-review"
                     tabIndex={-1}
@@ -2189,8 +2325,17 @@ function CvBuilderEditor({
                 aria-label="Bản xem trước CV"
               >
                 <div className="cv-preview-heading">
-                  <span>XEM TRƯỚC CV</span>
-                  <span>Bố cục đồng bộ với nhà tuyển dụng</span>
+                  <div>
+                    <span>XEM TRƯỚC CV</span>
+                    <span>Bố cục đồng bộ với nhà tuyển dụng</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="button secondary small cv-back-to-form-btn"
+                    onClick={() => changeMobilePane('edit')}
+                  >
+                    Quay lại sửa form
+                  </button>
                 </div>
                 <CvPreview draft={draft} skills={skills} />
               </section>

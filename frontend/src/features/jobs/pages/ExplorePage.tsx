@@ -1,46 +1,43 @@
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
+  Check,
+  CircleCheck,
+  Code2,
+  FileText,
+  LaptopMinimal,
+  LayoutGrid,
+  MapPin,
+  Megaphone,
+  MoveUpRight,
+  Palette,
+  ScanLine,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
-import {
-  Search,
-  MapPin,
-  ArrowUpRight,
-  ArrowRight,
-  Sparkles,
-  SlidersHorizontal,
-  Code2,
-  Palette,
-  ChartNoAxesCombined,
-  Megaphone,
-  LayoutGrid,
-  Check,
-  FileText,
-  MoveUpRight,
-  X,
-  CircleCheck,
-  ScanLine,
-  BriefcaseBusiness,
-  LaptopMinimal,
-} from 'lucide-react'
-import { getDepartments, getJobs, workModes } from '../../../services/job.service'
-import type { Department } from '../../../services/job.service'
-import { JobCard } from '../components/JobCard'
-import { jobDetailPath } from '../candidate-job-route'
-import { readJobBrowseSnapshot, saveJobBrowseSnapshot } from '../job-browse-state'
-import type { JobListResult } from '../job-browse-state'
-import { candidatePreviewDepartments, previewJobPage } from '../candidate-job-preview'
-import { appendJobPage, JOB_PAGE_SIZE } from '../job-list-pagination'
-import { useDemo } from '../../../app/providers/demo-context'
 import { useAuth } from '../../../app/providers/auth-context'
+import { useSavedJobs } from '../../../app/providers/saved-jobs-context'
+import type { Department } from '../../../services/job.service'
+import { getDepartments, getJobs, workModes } from '../../../services/job.service'
+import { jobDetailPath } from '../candidate-job-route'
+import { JobCard } from '../components/JobCard'
+import type { JobListResult } from '../job-browse-state'
+import { readJobBrowseSnapshot, saveJobBrowseSnapshot } from '../job-browse-state'
+import { appendJobPage, JOB_PAGE_SIZE } from '../job-list-pagination'
 import '../styles/candidate-home.css'
 import '../styles/candidate-job-list.css'
 const categoryIcons = [LayoutGrid, Code2, Palette, ChartNoAxesCombined, Megaphone]
 export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
-  const { saved } = useDemo()
-  const [params, setParams] = useSearchParams()
-  const sampleMode = params.get('data') === 'sample'
-  const savedCount = saved.filter((id) =>
-    sampleMode ? typeof id === 'number' : typeof id === 'string',
-  ).length
+  const { saved } = useSavedJobs()
+  const [params] = useSearchParams()
+
+  const savedCount = saved.filter((id) => typeof id === 'string').length
   const returnJobId = params.get('jobId')
   const location = useLocation()
   const { user } = useAuth()
@@ -57,10 +54,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
   const [page, setPage] = useState(snapshot?.page ?? 0)
   const [retry, setRetry] = useState(snapshot?.retry ?? 0)
   const [departmentError, setDepartmentError] = useState('')
-  const categories = [
-    'Tất cả',
-    ...(sampleMode ? candidatePreviewDepartments : departments).map((d) => d.name),
-  ]
+  const categories = ['Tất cả', ...departments.map((d) => d.name)]
   const filterKey = JSON.stringify({
     query,
     category,
@@ -70,7 +64,6 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
     sort,
     savedOnly,
     saved: savedOnly ? saved : [],
-    sampleMode,
   })
   const [currentFilter, setCurrentFilter] = useState(snapshot?.filterKey ?? filterKey)
   // Reset pagination before fetching a changed filter, so a late response cannot replace it.
@@ -79,7 +72,6 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
     setPage(0)
   }
   useEffect(() => {
-    if (sampleMode) return
     let active = true
     getDepartments()
       .then((data) => {
@@ -94,35 +86,19 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
     return () => {
       active = false
     }
-  }, [retry, sampleMode])
+  }, [retry])
   const departmentId = departments.find((d) => d.name === category)?.id
   const requestKey = JSON.stringify([filterKey, departmentId, page, retry])
   const resultScope = JSON.stringify([filterKey, departmentId])
   const [result, setResult] = useState<JobListResult | null>(snapshot?.result ?? null)
   const emptySaved = savedOnly && !saved.some((id) => typeof id === 'string')
   const current = result?.scope === resultScope ? result : null
-  const sampleResult = sampleMode
-    ? previewJobPage({
-        query,
-        category,
-        levels,
-        modes,
-        salary,
-        sort,
-        savedOnly,
-        saved,
-        page,
-        cumulative: true,
-      })
-    : null
-  const loading = !sampleMode && !emptySaved && current?.key !== requestKey
-  const jobs = sampleResult?.content ?? (emptySaved ? [] : (current?.jobs ?? []))
-  const total = sampleResult?.totalElements ?? (emptySaved ? 0 : (current?.total ?? 0))
-  const pages = sampleResult?.totalPages ?? (emptySaved ? 0 : (current?.pages ?? 0))
-  const loadError = sampleMode || loading ? '' : (current?.error ?? '')
-
+  const loading = !emptySaved && current?.key !== requestKey
+  const jobs = emptySaved ? [] : (current?.jobs ?? [])
+  const total = emptySaved ? 0 : (current?.total ?? 0)
+  const pages = emptySaved ? 0 : (current?.pages ?? 0)
+  const loadError = loading ? '' : (current?.error ?? '')
   useEffect(() => {
-    if (sampleMode) return
     let active = true
     const filter = JSON.parse(filterKey) as {
       query: string
@@ -176,7 +152,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
     return () => {
       active = false
     }
-  }, [filterKey, departmentId, page, retry, requestKey, resultScope, sampleMode])
+  }, [filterKey, departmentId, page, retry, requestKey, resultScope])
   useEffect(() => {
     if (loading || restoreScroll.current == null) return
     const frame = requestAnimationFrame(() => {
@@ -217,35 +193,15 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
   const toggle = (value: string, list: string[], setter: (values: string[]) => void) =>
     setter(list.includes(value) ? list.filter((x) => x !== value) : [...list, value])
   const activeCount = levels.length + modes.length + Number(salary)
-  const changeSource = (sample: boolean) => {
-    reset()
-    const next = new URLSearchParams(params)
-    next.delete('jobId')
-    if (sample) next.set('data', 'sample')
-    else next.delete('data')
-    setParams(next, { replace: true })
-  }
-  if (returnJobId) return <Navigate to={jobDetailPath(returnJobId, sampleMode)} replace />
+  if (returnJobId) return <Navigate to={jobDetailPath(returnJobId)} replace />
   return (
     <div
       className={`candidate-home candidate-jobs-page${savedOnly ? ' candidate-saved-page' : ''}`}
     >
       <div className="container candidate-data-source">
         <div>
-          <strong>{sampleMode ? 'Đang xem việc làm mẫu' : 'Việc làm đang tuyển'}</strong>
-          <p>
-            {sampleMode
-              ? 'Dữ liệu minh họa để thử tìm kiếm, bộ lọc và xem chi tiết. Tin mẫu chưa nhận hồ sơ ứng tuyển.'
-              : 'Tin do HR đăng và còn hạn tuyển.'}
-          </p>
-        </div>
-        <div className="candidate-source-switch" role="group" aria-label="Nguồn việc làm">
-          <button aria-pressed={!sampleMode} onClick={() => changeSource(false)}>
-            Dữ liệu thật
-          </button>
-          <button aria-pressed={sampleMode} onClick={() => changeSource(true)}>
-            Xem mẫu
-          </button>
+          <strong>{'Việc làm đang tuyển'}</strong>
+          <p>{'Tin do HR đăng và còn hạn tuyển.'}</p>
         </div>
       </div>
       {!savedOnly && (
@@ -256,8 +212,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                 <div className="hero-kicker">
                   <span className="eyebrow">LUMI STUDIO · CAREERS</span>
                   <span className="hero-vacancies">
-                    <span className="status-dot" /> {total}{' '}
-                    {sampleMode ? 'vị trí mẫu' : 'vị trí đang mở'}
+                    <span className="status-dot" /> {total} {'vị trí đang mở'}
                   </span>
                 </div>
                 <h1>
@@ -492,7 +447,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
             />
           </label>
         )}
-        {!sampleMode && departmentError && (
+        {departmentError && (
           <p role="alert">
             {departmentError}{' '}
             <button className="text-button" onClick={() => setRetry(retry + 1)}>
@@ -585,11 +540,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                 <strong>{total}</strong> cơ hội {savedOnly ? 'đã lưu' : 'dành cho bạn'}
                 <span className="results-dot">·</span>
                 <span className="muted">
-                  {sampleMode
-                    ? 'Dữ liệu mẫu'
-                    : savedOnly
-                      ? 'Đã lưu trong phiên này'
-                      : 'Tin đang tuyển'}
+                  {savedOnly ? 'Đã lưu trong phiên này' : 'Tin đang tuyển'}
                 </span>
               </span>
               <div>
@@ -633,7 +584,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                   <JobCard
                     key={j.id}
                     job={j}
-                    to={jobDetailPath(j.id, sampleMode, listPath)}
+                    to={jobDetailPath(j.id, listPath)}
                     navigationState={{ listKey: location.key, fromList: listPath }}
                     onNavigate={rememberList}
                   />
@@ -653,7 +604,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                     : 'Thử một từ khóa khác hoặc mở rộng bộ lọc của bạn.'}
                 </p>
                 {savedOnly && !savedCount ? (
-                  <Link to={sampleMode ? '/?data=sample' : '/'} className="button">
+                  <Link to={'/'} className="button">
                     Khám phá việc làm
                   </Link>
                 ) : (

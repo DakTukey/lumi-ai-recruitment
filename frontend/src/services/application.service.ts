@@ -52,6 +52,8 @@ export type ApplicationReview = {
 }
 type ReviewResponse = ApplicationReview & { application: SubmittedApplication }
 export type SubmittedApplication = {
+  submissionFormat?: 'BUILDER' | 'ORIGINAL_PDF'
+  sourceDocumentId?: string | null
   review?: ApplicationReview
   id: string
   jobId: string
@@ -103,6 +105,7 @@ export const applyToJob = async (
   resumeId: string,
   resumeVersion: number,
   coverLetter?: string,
+  submissionFormat: 'BUILDER' | 'ORIGINAL_PDF' = 'BUILDER',
 ) =>
   (
     await post<SubmittedApplication>('/candidate/applications', {
@@ -110,6 +113,7 @@ export const applyToJob = async (
       resumeId,
       resumeVersion,
       coverLetter,
+      submissionFormat,
     })
   ).data
 export const getApplications = async (staff: boolean, params = new URLSearchParams()) =>
@@ -149,3 +153,32 @@ export const getApplicationSummary = async (jobId = '') =>
   ).data
 
 export const submittedDate = (at: string) => new Date(at).toLocaleString('vi-VN')
+
+export type EmailTemplateType = 'INTERVIEW' | 'REJECTION' | 'OFFER' | 'INFO_REQUEST'
+
+export type GenerateEmailRequest = {
+  templateType: EmailTemplateType
+  interviewTime?: string
+  interviewFormat?: string
+  interviewLocation?: string
+  salaryOffer?: string
+  startDate?: string
+  rejectionReason?: string
+  additionalNotes?: string
+  tone?: 'professional' | 'friendly' | 'formal'
+}
+
+export type GeneratedEmailResult = {
+  subject: string
+  body: string
+  candidateName: string
+  candidateEmail: string
+  jobTitle: string
+}
+
+export const generateRecruitmentEmail = async (id: string, req: GenerateEmailRequest) =>
+  (
+    await post<GeneratedEmailResult>(`/recruiter/applications/${id}/ai-email`, req, {
+      timeoutMs: 45000,
+    })
+  ).data

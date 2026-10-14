@@ -13,11 +13,11 @@ async function moduleUrl(path, replacements = {}) {
 }
 const paginationUrl = await moduleUrl('../src/features/jobs/job-list-pagination.ts')
 const { appendJobPage, JOB_PAGE_SIZE } = await import(paginationUrl)
-const jobsUrl = await moduleUrl('../src/features/jobs/data/jobs.ts')
+const jobsUrl = await moduleUrl('./fixtures/jobs.ts')
 const { previewJobPage } = await import(
-  await moduleUrl('../src/features/jobs/candidate-job-preview.ts', {
-    "'./data/jobs'": JSON.stringify(jobsUrl),
-    "'./job-list-pagination'": JSON.stringify(paginationUrl),
+  await moduleUrl('./fixtures/candidate-job-preview.ts', {
+    "'./jobs'": JSON.stringify(jobsUrl),
+    "'../../src/features/jobs/job-list-pagination'": JSON.stringify(paginationUrl),
   })
 )
 const filters = {

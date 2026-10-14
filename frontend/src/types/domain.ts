@@ -146,6 +146,8 @@ export type Resume = {
   languages: ResumeLanguage[]
   awards: ResumeAward[]
   activities: ResumeActivity[]
+  sourceDocumentId?: string | null
+  extraSections?: { title: string; content: string }[]
   template: 'classic' | 'modern'
   status: 'DRAFT' | 'READY'
   isDefault: boolean

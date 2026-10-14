@@ -57,6 +57,8 @@ class LoginFlowTest {
     private final java.util.concurrent.atomic.AtomicInteger reviewCalls = new java.util.concurrent.atomic.AtomicInteger();
     private volatile java.util.concurrent.CountDownLatch matchEntered;
     private volatile java.util.concurrent.CountDownLatch matchRelease;
+    private final java.util.concurrent.atomic.AtomicInteger parseCalls = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile boolean parseFails;
     private CookieManager cookies;
     private HttpClient client;
 
@@ -71,6 +73,17 @@ class LoginFlowTest {
         String databaseUrl = adminUrl.substring(0, adminUrl.lastIndexOf('/') + 1) + databaseName;
         aiStub = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
         aiExecutor = java.util.concurrent.Executors.newCachedThreadPool();aiStub.setExecutor(aiExecutor);
+        aiStub.createContext("/api/cv-parser", exchange -> {
+            parseCalls.incrementAndGet(); exchange.getRequestBody().readAllBytes();
+            var result = resumePayload("Original PDF", "DRAFT");
+            result.put("summary", "Original PDF evidence");
+            result.put("extraSections", java.util.List.of(Map.of("title", "Research", "content", "Paper in 2023")));
+            result.put("warnings", java.util.List.of("Check source")); result.put("pageCount", 1); result.put("extractedText", "Page 1: Original PDF evidence");
+            byte[] output = mapper.writeValueAsString(result).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(parseFails ? 503 : 200, output.length);
+            exchange.getResponseBody().write(output); exchange.close();
+        });
         aiStub.createContext("/api/assess", exchange -> {
             String mode=aiMode;aiCalls.incrementAndGet();
             try {
@@ -1411,6 +1424,75 @@ class LoginFlowTest {
         var list=mapper.readTree(get("/api/jobs?size=100&ids="+job+","+otherJob).body()).at("/data/content");
         assertEquals(2,list.size());
         for(var item:list) assertEquals(item.path("id").asText().equals(job)?2:0,item.path("applicationCount").asLong());
+    }
+
+    private HttpResponse<String> uploadPdf(byte[] bytes, boolean withCsrf) throws Exception {
+        String boundary="PdfTestBoundary";
+        var buffer=new java.io.ByteArrayOutputStream();
+        buffer.write(("--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cv.pdf\"\r\nContent-Type: application/pdf\r\n\r\n").getBytes());
+        buffer.write(bytes);buffer.write(("\r\n--"+boundary+"--\r\n").getBytes());
+        var request=HttpRequest.newBuilder(URI.create(baseUrl+"/api/candidate/cv-documents")).header("Content-Type","multipart/form-data; boundary="+boundary);
+        if(withCsrf) {var t=csrf();request.header(t.header(),t.value());}
+        return client.send(request.POST(HttpRequest.BodyPublishers.ofByteArray(buffer.toByteArray())).build(),HttpResponse.BodyHandlers.ofString());
+    }
+    @Test void pdfImportsArePrivateCachedAndNeverCreateCvUntilSaved() throws Exception {
+        byte[] pdf=("%PDF-1.7\nSynthetic fixture "+UUID.randomUUID()).getBytes();
+        assertEquals(401,uploadPdf(pdf,true).statusCode());registerResumeOwner();
+        assertEquals(403,uploadPdf(pdf,false).statusCode());
+        assertEquals(400,uploadPdf("not a pdf".getBytes(),true).statusCode());
+        var large=new byte[2*1024*1024];System.arraycopy(pdf,0,large,0,pdf.length);
+        var response=uploadPdf(large,true);assertEquals(200,response.statusCode(),response.body());
+        String id=mapper.readTree(response.body()).at("/data/id").asText();
+        assertEquals(id,mapper.readTree(uploadPdf(large,true).body()).at("/data/id").asText());
+        assertEquals(0,mapper.readTree(get("/api/candidate/resumes").body()).path("data").size());
+        assertEquals(403,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),null).statusCode());
+        int calls=parseCalls.get();
+        var parsed=post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf());assertEquals(200,parsed.statusCode(),parsed.body());
+        assertEquals("PARSED",mapper.readTree(parsed.body()).at("/data/status").asText());
+        assertEquals(200,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());assertEquals(calls+1,parseCalls.get());
+        var body=resumePayload("Reviewed new CV","DRAFT");body.put("sourceDocumentId",id);body.put("extraSections",java.util.List.of(Map.of("title","Research","content","Paper 2023")));
+        var saved=post("/api/candidate/resumes",body,csrf());assertEquals(201,saved.statusCode(),saved.body());
+        assertEquals("Paper 2023",mapper.readTree(saved.body()).at("/data/extraSections/0/content").asText());
+        var file=get("/api/candidate/cv-documents/"+id+"/file");assertEquals(200,file.statusCode());assertEquals("no-store",file.headers().firstValue("Cache-Control").orElse(""));
+        assertEquals("SAMEORIGIN",file.headers().firstValue("X-Frame-Options").orElse(""));
+        assertEquals("frame-ancestors 'self'",file.headers().firstValue("Content-Security-Policy").orElse(""));
+        assertEquals("DENY",get("/api/candidate/resumes").headers().firstValue("X-Frame-Options").orElse(""));
+        newBrowserSession();registerResumeOwner();assertEquals(404,get("/api/candidate/cv-documents/"+id).statusCode());assertEquals(404,get("/api/candidate/cv-documents/"+id+"/file").statusCode());
+        assertEquals(404,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
+        assertEquals(404,post("/api/candidate/resumes",body,csrf()).statusCode());
+    }
+    @Test void pdfSubmissionPinsOriginalAndScoresItsExtractionInsteadOfBuilderEdits() throws Exception {
+        String job=applicationJob();
+        var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
+        String doc=mapper.readTree(upload.body()).at("/data/id").asText();
+        assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+        var body=resumePayload("CV with PDF","READY");body.put("sourceDocumentId",doc);body.put("summary","Edited in builder, not in original");
+        var saved=post("/api/candidate/resumes",body,csrf());assertEquals(201,saved.statusCode(),saved.body());
+        var cv=mapper.readTree(saved.body()).path("data");
+        var input=new java.util.HashMap<String,Object>(applicationInput(job,cv));input.put("submissionFormat","ORIGINAL_PDF");
+        var response=post("/api/candidate/applications",input,csrf());assertEquals(201,response.statusCode(),response.body());
+        var app=mapper.readTree(response.body()).path("data");String appId=app.path("id").asText();
+        assertEquals("ORIGINAL_PDF",app.path("submissionFormat").asText());assertEquals(doc,app.path("sourceDocumentId").asText());
+        assertEquals("Original PDF evidence",app.at("/resumeSnapshot/summary").asText());
+        assertEquals("Research",app.at("/resumeSnapshot/extraSections/0/title").asText());
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        assertThrows(Exception.class,()->jdbc.update("update recruitment.applications set source_document_id=null where id=?::uuid",appId));
+        assertThrows(Exception.class,()->jdbc.update("update candidate.resume_documents set content=? where id=?::uuid","changed".getBytes(),doc));
+        newBrowserSession();loginStaff("recruiter");
+        var hrPdf=get("/api/recruiter/applications/"+appId+"/cv-file");assertEquals(200,hrPdf.statusCode());
+        assertEquals("SAMEORIGIN",hrPdf.headers().firstValue("X-Frame-Options").orElse(""));
+        assertEquals(403,get("/api/candidate/cv-documents/"+doc+"/file").statusCode());
+        assertEquals(404,get("/api/recruiter/applications/"+UUID.randomUUID()+"/cv-file").statusCode());
+    }
+    @Test void pdfParserFailureKeepsOriginalAndDoesNotAttachUnparsedDocument() throws Exception {
+        registerResumeOwner();var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
+        String id=mapper.readTree(upload.body()).at("/data/id").asText();
+        try {parseFails=true;assertEquals(503,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());} finally {parseFails=false;}
+        assertEquals("FAILED",mapper.readTree(get("/api/candidate/cv-documents/"+id).body()).at("/data/status").asText());
+        assertEquals(200,get("/api/candidate/cv-documents/"+id+"/file").statusCode());
+        var cv=resumePayload("Unparsed","DRAFT");cv.put("sourceDocumentId",id);
+        assertEquals(404,post("/api/candidate/resumes",cv,csrf()).statusCode());
+        assertEquals(409,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
     }
 
     private String applicationJob() throws Exception {

@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { FileText, Pencil, Plus, Star, Trash2 } from 'lucide-react'
+import { Eye, FileText, Pencil, Plus, Sparkles, Star, Trash2 } from 'lucide-react'
 import { deleteResume, getMyResumes, setDefaultResume } from '../../services/resume.service'
 import type { Resume } from '../../types/domain'
+import { Modal } from '../../components/ui/Modal'
+import { CvPreview } from './CvPreview'
 import './resume-library.css'
 
 export function ResumeLibrary() {
   const [params] = useSearchParams()
   const jobId = params.get('jobId')
   const [resumes, setResumes] = useState<Resume[]>([])
+  const [viewingResume, setViewingResume] = useState<Resume | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -65,13 +68,26 @@ export function ResumeLibrary() {
           <h3>CV đã lưu</h3>
           <p>Mỗi CV có nội dung riêng. Bạn có thể tạo nhiều bản cho các vị trí khác nhau.</p>
         </div>
-        <Link
-          className="button small"
-          to={jobId ? `/cv-builder?jobId=${encodeURIComponent(jobId)}` : '/cv-builder'}
-        >
-          <Plus size={16} />
-          Tạo CV mới
-        </Link>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link
+            className="button secondary small"
+            to={
+              jobId
+                ? `/cv-builder?jobId=${encodeURIComponent(jobId)}&import=pdf`
+                : '/cv-builder?import=pdf'
+            }
+          >
+            <Sparkles size={16} />
+            Nhập từ PDF
+          </Link>
+          <Link
+            className="button small"
+            to={jobId ? `/cv-builder?jobId=${encodeURIComponent(jobId)}` : '/cv-builder'}
+          >
+            <Plus size={16} />
+            Tạo CV mới
+          </Link>
+        </div>
       </div>
       {notice && (
         <p className="resume-library-notice" role="status">
@@ -120,6 +136,15 @@ export function ResumeLibrary() {
                   </div>
                 </div>
                 <div className="resume-library-actions">
+                  <button
+                    type="button"
+                    className="button secondary small"
+                    onClick={() => setViewingResume(resume)}
+                    aria-label={`Xem CV ${resume.title}`}
+                  >
+                    <Eye size={14} />
+                    Xem CV
+                  </button>
                   <Link
                     className="button secondary small"
                     to={`/cv-builder?id=${resume.id}${jobId ? `&jobId=${encodeURIComponent(jobId)}` : ''}`}
@@ -154,6 +179,17 @@ export function ResumeLibrary() {
             ))}
           </div>
         </>
+      )}
+      {viewingResume && (
+        <Modal
+          title={`Xem trước CV: ${viewingResume.title}`}
+          onClose={() => setViewingResume(null)}
+          wide
+        >
+          <div className="resume-modal-preview">
+            <CvPreview draft={viewingResume} skills={viewingResume.skills ?? []} />
+          </div>
+        </Modal>
       )}
     </section>
   )

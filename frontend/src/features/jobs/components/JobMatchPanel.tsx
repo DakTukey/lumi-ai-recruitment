@@ -1,41 +1,33 @@
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  FileText,
+  ListFilter,
+  LockKeyhole,
+  Radar,
+  RotateCw,
+  ScanLine,
+  Sparkles,
+} from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  ArrowUpRight,
-  ArrowRight,
-  ChevronDown,
-  ScanLine,
-  FileText,
-  Check,
-  CircleHelp,
-  ListFilter,
-  Radar,
-  Sparkles,
-  RotateCw,
-  BookOpen,
-  LockKeyhole,
-} from 'lucide-react'
 import { useAuth } from '../../../app/providers/auth-context'
-import { getMyResumes } from '../../../services/resume.service'
-import { analyzeJobMatch, getCachedJobMatch } from '../../../services/candidate-match.service'
-import type { Job, Resume } from '../../../types/domain'
 import { ApiError } from '../../../services/api'
-import { jobDetailPath, improveCvPath } from '../candidate-job-route'
-import {
-  jobMatchOverview,
-  jobMatchStatus,
-  sampleJobMatch,
-  isCurrentJobMatch,
-  sampleMatchResumes,
-} from '../candidate-job-match-model'
+import { analyzeJobMatch, getCachedJobMatch } from '../../../services/candidate-match.service'
+import { getMyResumes } from '../../../services/resume.service'
+import type { Job, Resume } from '../../../types/domain'
 import type { CandidateJobMatch } from '../candidate-job-match-model'
-import { JobMatchBars, JobMatchRadar, JobMatchScore } from './JobMatchCharts'
-import { JobBenchmarkPanel } from './JobBenchmarkPanel'
+import { isCurrentJobMatch, jobMatchOverview, jobMatchStatus } from '../candidate-job-match-model'
+import { improveCvPath, jobDetailPath } from '../candidate-job-route'
 import '../styles/job-match.css'
-
+import { JobBenchmarkPanel } from './JobBenchmarkPanel'
+import { JobMatchBars, JobMatchRadar, JobMatchScore } from './JobMatchCharts'
 export function JobMatchPanel({
   job,
-  sampleMode,
   onApply,
   canApply,
   open,
@@ -44,7 +36,7 @@ export function JobMatchPanel({
   onRefreshJob,
 }: {
   job: Job
-  sampleMode: boolean
+
   onApply: (resumeId?: string) => void
   canApply: boolean
   open: boolean
@@ -73,20 +65,17 @@ export function JobMatchPanel({
   const current = cvResult?.key === requestKey ? cvResult : null
   const readyResumes = current?.resumes?.filter((resume) => resume.status === 'READY') ?? []
   const defaultResume = readyResumes.find((resume) => resume.isDefault) ?? readyResumes[0]
-  const resumeId = sampleMode
-    ? selectedResume || sampleMatchResumes[0].id
-    : readyResumes.some((resume) => resume.id === selectedResume)
-      ? selectedResume
-      : (defaultResume?.id ?? '')
+  const resumeId = readyResumes.some((resume) => resume.id === selectedResume)
+    ? selectedResume
+    : (defaultResume?.id ?? '')
   const chosenResume = readyResumes.find((resume) => resume.id === resumeId)
-  const resultKey = sampleMode ? resumeId : `${resumeId}:${chosenResume?.version ?? ''}`
+  const resultKey = `${resumeId}:${chosenResume?.version ?? ''}`
   const stored = matchResults[resultKey]
   const result =
-    stored &&
-    (sampleMode || (chosenResume && isCurrentJobMatch(stored, String(job.id), chosenResume)))
+    stored && chosenResume && isCurrentJobMatch(stored, String(job.id), chosenResume)
       ? stored
       : null
-  const checkingCache = !sampleMode && !!resumeId && !result && cacheChecked !== resultKey
+  const checkingCache = !!resumeId && !result && cacheChecked !== resultKey
   useEffect(
     () => () => {
       sequence.current++
@@ -94,9 +83,8 @@ export function JobMatchPanel({
     },
     [],
   )
-
   useEffect(() => {
-    if (!open || sampleMode || !candidate) return
+    if (!open || !candidate) return
     let active = true
     getMyResumes()
       .then((resumes) => {
@@ -109,10 +97,9 @@ export function JobMatchPanel({
     return () => {
       active = false
     }
-  }, [candidate, requestKey, open, sampleMode])
-
+  }, [candidate, requestKey, open])
   useEffect(() => {
-    if (!open || sampleMode || !candidate || !chosenResume || result) return
+    if (!open || !candidate || !chosenResume || result) return
     let active = true
     const request = sequence.current
     getCachedJobMatch(String(job.id), chosenResume.id)
@@ -137,16 +124,11 @@ export function JobMatchPanel({
     return () => {
       active = false
     }
-  }, [open, sampleMode, candidate, chosenResume, resultKey, job.id, result])
-
+  }, [open, candidate, chosenResume, resultKey, job.id, result])
   const handleAnalyze = async (force = false) => {
     if (running.current) return
     setMatchError(null)
     setRefreshRequired(false)
-    if (sampleMode) {
-      setMatchResults((prev) => ({ ...prev, [resultKey]: sampleJobMatch(job, resumeId) }))
-      return
-    }
     if (!chosenResume) return
     running.current = true
     const request = ++sequence.current
@@ -174,7 +156,6 @@ export function JobMatchPanel({
       }
     }
   }
-
   const logIn = (
     <Link className="jm-open-button" to="/login" state={{ from: jobDetailPath(job.id) }}>
       Đăng nhập để chọn CV
@@ -203,7 +184,7 @@ export function JobMatchPanel({
           <LockKeyhole size={12} />
           Bạn chủ động chọn CV để đối chiếu
         </span>
-        {!sampleMode && !user && !authLoading ? (
+        {!user && !authLoading ? (
           logIn
         ) : (
           <button
@@ -211,45 +192,34 @@ export function JobMatchPanel({
             type="button"
             aria-expanded={open}
             aria-controls={panelId}
-            disabled={authLoading || (!sampleMode && !candidate)}
+            disabled={authLoading || !candidate}
             onClick={onToggle}
           >
             {authLoading
               ? 'Đang kiểm tra phiên…'
-              : !sampleMode && !candidate
+              : !candidate
                 ? 'Dành cho ứng viên'
                 : open
                   ? 'Thu gọn'
-                  : sampleMode
-                    ? 'Khám phá bản mẫu'
-                    : 'Chọn CV đối chiếu'}
+                  : 'Chọn CV đối chiếu'}
             <ChevronDown size={15} />
           </button>
         )}
       </div>
       <div id={panelId} className="jm-body" hidden={!open}>
-        {sampleMode && (
-          <div className="jm-sample-label" role="note">
-            <Sparkles size={14} />
-            <span>
-              <strong>Bản mẫu tương tác.</strong> Điểm, CV và căn cứ bên dưới chỉ minh họa giao
-              diện.
-            </span>
-          </div>
-        )}
-        {!sampleMode && !candidate ? (
+        {!candidate ? (
           <div className="jm-state">
             <p>
               {user ? 'Phân tích CV dành cho tài khoản ứng viên.' : 'Đăng nhập để chọn CV của bạn.'}
             </p>
             {!user && logIn}
           </div>
-        ) : !sampleMode && !current ? (
+        ) : !current ? (
           <p className="jm-state" role="status">
             <RotateCw size={16} />
             Đang tải danh sách CV…
           </p>
-        ) : !sampleMode && current?.error ? (
+        ) : current?.error ? (
           <div className="jm-state">
             <p role="alert">{current.error}</p>
             <button className="jm-text-button" onClick={() => setRetry(retry + 1)}>
@@ -257,7 +227,7 @@ export function JobMatchPanel({
               Thử lại
             </button>
           </div>
-        ) : !sampleMode && !readyResumes.length ? (
+        ) : !readyResumes.length ? (
           <div className="jm-empty">
             <FileText size={26} />
             <h3>Chuẩn bị một CV để bắt đầu</h3>
@@ -281,11 +251,7 @@ export function JobMatchPanel({
                 <FileText size={16} />
                 <span>
                   CV dùng để đối chiếu
-                  <small>
-                    {sampleMode
-                      ? 'Thử đổi CV mẫu để so sánh kết quả'
-                      : 'Chỉ dùng phiên bản đã lưu và hoàn tất'}
-                  </small>
+                  <small>{'Chỉ dùng phiên bản đã lưu và hoàn tất'}</small>
                 </span>
               </label>
               <div>
@@ -299,7 +265,7 @@ export function JobMatchPanel({
                     setRefreshRequired(false)
                   }}
                 >
-                  {(sampleMode ? sampleMatchResumes : readyResumes).map((resume) => (
+                  {readyResumes.map((resume) => (
                     <option key={resume.id} value={resume.id}>
                       {resume.title} · v{resume.version}
                     </option>
@@ -308,9 +274,7 @@ export function JobMatchPanel({
                 <button
                   className="jm-analyze"
                   type="button"
-                  disabled={
-                    analyzing || checkingCache || refreshRequired || (!sampleMode && !resumeId)
-                  }
+                  disabled={analyzing || checkingCache || refreshRequired || !resumeId}
                   onClick={() => void handleAnalyze(Boolean(result))}
                 >
                   {analyzing || checkingCache ? (
@@ -321,22 +285,18 @@ export function JobMatchPanel({
                   ) : (
                     <>
                       <Sparkles size={15} />
-                      {sampleMode
-                        ? 'Xem kết quả mẫu'
-                        : result
-                          ? 'Phân tích lại với AI'
-                          : 'Phân tích độ phù hợp'}
+                      {result ? 'Phân tích lại với AI' : 'Phân tích độ phù hợp'}
                     </>
                   )}
                 </button>
               </div>
             </div>
-            {!sampleMode && (
+            {
               <p className="jm-data-note">
                 Khi bấm phân tích, nội dung năng lực trong CV và JD được gửi tới Groq hoặc Gemini dự
                 phòng. Họ tên, email và số điện thoại không được gửi.
               </p>
-            )}
+            }
             {matchError && (
               <div className="jm-error-banner" role="alert">
                 <p>{matchError}</p>
@@ -395,7 +355,6 @@ export function JobMatchPanel({
     </section>
   )
 }
-
 function JobMatchResult({
   benchmarkEnabled,
   result,
@@ -412,7 +371,7 @@ function JobMatchResult({
   const evidenceId = useId()
   const overview = jobMatchOverview(result.criteria)
   const active = result.criteria[selected] ?? result.criteria[0]
-  const isReal = result.source === 'assessment'
+  const isReal = true
   const displayScore = overview.score
   const improvementPath = improveCvPath(result.jobId, result.resumeId)
   return (
@@ -630,7 +589,7 @@ function JobMatchResult({
             : 'Phân tích chỉ hỗ trợ bạn chuẩn bị hồ sơ.'}
         </span>
         <button type="button" disabled={!canApply} onClick={onApply}>
-          {canApply ? 'Tiếp tục ứng tuyển' : 'Tin mẫu · Chưa nhận hồ sơ'}
+          {canApply ? 'Tiếp tục ứng tuyển' : 'Chưa thể ứng tuyển'}
           <ArrowUpRight size={16} />
         </button>
       </div>

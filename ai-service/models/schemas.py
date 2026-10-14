@@ -47,6 +47,7 @@ class ResumeInput(SnapshotModel):
     languages: list[dict] = Field(default_factory=list)
     awards: list[dict] = Field(default_factory=list)
     activities: list[dict] = Field(default_factory=list)
+    extra_sections: list[dict] = Field(default_factory=list)
     github_url: str | None = None
     linkedin_url: str | None = None
     portfolio_url: str | None = None

@@ -1,0 +1,33 @@
+TUYỂN DỤNG SENIOR FULLSTACK DEVELOPER (REACT & NODEJS)
+
+1. THÔNG TIN CHUNG:
+- Vị trí: Senior Fullstack Developer
+- Phòng ban: Công nghệ & Sản phẩm (IT)
+- Địa điểm: Tầng 6, Tòa nhà Lumi Studio, Đà Nẵng (Hỗ trợ làm việc Hybrid 2 ngày/tuần tại nhà)
+- Hình thức: Toàn thời gian (Full-time)
+- Số lượng tuyển: 2 người
+- Mức lương: 30.000.000 - 45.000.000 VNĐ / tháng (Thỏa thuận theo năng lực)
+- Hạn nộp hồ sơ: 30/11/2026
+
+2. MÔ TẢ CÔNG VIỆC:
+- Tham gia thiết kế kiến trúc và phát triển các sản phẩm phần mềm SaaS phục vụ hàng trăm nghìn người dùng.
+- Xây dựng giao diện người dùng hiện đại, tối ưu trải nghiệm và hiệu năng với React, TypeScript và Next.js.
+- Phát triển các dịch vụ backend microservices mở rộng cao với Node.js, Express/NestJS, PostgreSQL và Redis.
+- Phối hợp chặt chẽ với đội ngũ UI/UX Designer và Product Manager để chuyển hóa yêu cầu sản phẩm thành tính năng hoàn chỉnh.
+- Hướng dẫn, hỗ trợ code review và nâng cao chất lượng kỹ thuật cho các kỹ sư Junior/Middle trong nhóm.
+
+3. YÊU CẦU CÔNG VIỆC:
+- Tối thiểu 4 năm kinh nghiệm làm việc thực tế với hệ sinh thái JavaScript/TypeScript.
+- Thành thạo ReactJS (Hooks, State Management, Performance Optimization) và Next.js.
+- Có kinh nghiệm thực chiến phát triển Backend với Node.js (NestJS hoặc ExpressJS).
+- Nắm vững thiết kế cơ sở dữ liệu quan hệ (PostgreSQL) và NoSQL, tối ưu truy vấn SQL phức tạp.
+- Sử dụng thành thạo Git, Docker, hiểu biết về quy trình CI/CD và triển khai ứng dụng trên Cloud (AWS/GCP).
+- Tư duy logic tốt, khả năng giải quyết vấn đề độc lập và giao tiếp nhóm hiệu quả.
+
+4. QUYỀN LỢI ĐƯỢC HƯỞNG:
+- Mức lương cạnh tranh, xét tăng lương định kỳ 2 lần/năm theo hiệu suất công việc.
+- Lương tháng 13 đảm bảo + Thưởng hiệu quả dự án hàng quý.
+- Gói bảo hiểm sức khỏe toàn diện cao cấp (Bảo Việt / PJICO) cho nhân viên và người thân.
+- Được cấp Macbook Pro M3 hoặc máy tính cấu hình cao phục vụ công việc.
+- Trợ cấp cơm trưa, gửi xe miễn phí, teambuilding và du lịch nghỉ dưỡng hàng năm.
+- Môi trường làm việc cởi mở, tôn trọng sáng tạo và khuyến khích phát triển sự nghiệp cá nhân.

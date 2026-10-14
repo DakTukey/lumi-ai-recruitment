@@ -49,6 +49,13 @@ public class SecurityConfig {
             CsrfTokenRepository csrfTokens, ObjectMapper mapper) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
+                .headers(headers -> headers.frameOptions(frame -> frame.disable())
+                        .addHeaderWriter((request, response) -> {
+                            // Only authorized PDF responses can appear in our own CV preview frames.
+                            boolean cvFile = "GET".equals(request.getMethod()) && request.getRequestURI().matches(
+                                    "/api/(candidate/cv-documents/[0-9a-fA-F-]+/file|recruiter/applications/[0-9a-fA-F-]+/cv-file)");
+                            response.setHeader("X-Frame-Options", cvFile && response.getStatus() == 200 ? "SAMEORIGIN" : "DENY");
+                        }))
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
                 .securityContext(context -> context.securityContextRepository(contexts).requireExplicitSave(true))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))

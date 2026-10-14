@@ -1,21 +1,20 @@
-export function safeJobListPath(value: unknown, sample = false) {
-  const fallback = sample ? '/?data=sample#opportunities' : '/#opportunities'
+export function safeJobListPath(value: unknown) {
+  const fallback = '/#opportunities'
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return fallback
   try {
     const url = new URL(value, 'https://lumi.local')
     if (url.origin !== 'https://lumi.local' || !['/', '/saved'].includes(url.pathname))
       return fallback
-    const search = url.searchParams.get('data') === 'sample' ? '?data=sample' : ''
+    const search = ''
     return `${url.pathname}${search}${url.hash === '#opportunities' ? url.hash : ''}`
   } catch {
     return fallback
   }
 }
 
-export function jobDetailPath(id: string | number, sample = false, from?: string) {
+export function jobDetailPath(id: string | number, from?: string) {
   const params = new URLSearchParams()
-  if (sample) params.set('data', 'sample')
-  if (from) params.set('from', safeJobListPath(from, sample))
+  if (from) params.set('from', safeJobListPath(from))
   return `/jobs/${encodeURIComponent(id)}${params.size ? `?${params}` : ''}`
 }
 

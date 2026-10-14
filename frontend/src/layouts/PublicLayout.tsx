@@ -1,21 +1,18 @@
+import { ArrowUpRight, BriefcaseBusiness, Menu, Sparkles, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowUpRight, Menu, X, Sparkles, BriefcaseBusiness } from 'lucide-react'
-import { Brand } from '../components/common/Brand'
-import { AccountMenu } from '../components/common/AccountMenu'
-import { useDemo } from '../app/providers/demo-context'
 import { useAuth } from '../app/providers/auth-context'
+import { useSavedJobs } from '../app/providers/saved-jobs-context'
+import { AccountMenu } from '../components/common/AccountMenu'
+import { Brand } from '../components/common/Brand'
 export function PublicLayout() {
   const [menu, setMenu] = useState(false)
-  const { saved } = useDemo()
+  const { saved } = useSavedJobs()
   const { user, signOut, loading, isSigningOut } = useAuth()
-  const { pathname, search } = useLocation()
-  const sampleMode = new URLSearchParams(search).get('data') === 'sample'
-  const jobsPath = sampleMode ? '/?data=sample' : '/'
-  const savedPath = sampleMode ? '/saved?data=sample' : '/saved'
-  const savedCount = saved.filter((id) =>
-    sampleMode ? typeof id === 'number' : typeof id === 'string',
-  ).length
+  const { pathname } = useLocation()
+  const jobsPath = '/'
+  const savedPath = '/saved'
+  const savedCount = saved.filter((id) => typeof id === 'string').length
   const isHome = pathname === '/'
   const isJobList = isHome || pathname === '/saved'
   const isJobDetail = pathname.startsWith('/jobs/')

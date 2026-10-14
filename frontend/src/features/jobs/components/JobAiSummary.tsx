@@ -1,11 +1,15 @@
+import { ArrowUpRight, ChevronDown, Quote, RotateCw, Sparkles } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
-import { Sparkles, ChevronDown, ArrowUpRight, RotateCw, Quote } from 'lucide-react'
 import { ApiError } from '../../../services/api'
-import { generateJobSummary, getJobSummary } from '../../../services/job-summary.service'
 import type { JobSummary, SummaryCategory } from '../../../services/job-summary.service'
+import { generateJobSummary, getJobSummary } from '../../../services/job-summary.service'
 import '../styles/job-ai-summary.css'
-
-const groups: { category: SummaryCategory; label: string; empty: string; index: string }[] = [
+const groups: {
+  category: SummaryCategory
+  label: string
+  empty: string
+  index: string
+}[] = [
   {
     category: 'responsibilities',
     label: 'Công việc chính',
@@ -31,14 +35,12 @@ const groups: { category: SummaryCategory; label: string; empty: string; index: 
     index: '04',
   },
 ]
-
 export function JobAiSummary({
   jobId,
-  sampleMode,
   onRefreshJob,
 }: {
   jobId: string
-  sampleMode: boolean
+
   onRefreshJob: () => void
 }) {
   const contentId = useId()
@@ -53,9 +55,9 @@ export function JobAiSummary({
   // Once opened, collapsing the panel does not cancel a paid request or generate a second one.
   const [requested, setRequested] = useState(false)
   const current = result?.attempt === attempt ? result : null
-  const loading = requested && !sampleMode && !current
+  const loading = requested && !current
   useEffect(() => {
-    if (!requested || sampleMode) return
+    if (!requested) return
     let active = true
     async function load() {
       try {
@@ -79,7 +81,7 @@ export function JobAiSummary({
     return () => {
       active = false
     }
-  }, [jobId, requested, sampleMode, attempt])
+  }, [jobId, requested, attempt])
   return (
     <section
       className={`jd-ai ${open ? 'is-open' : ''}`}
@@ -106,11 +108,7 @@ export function JobAiSummary({
         <ChevronDown className="jd-ai-chevron" size={19} />
       </button>
       <div id={contentId} hidden={!open} className="jd-ai-body" aria-busy={loading}>
-        {sampleMode ? (
-          <p className="jd-ai-message">
-            Tin mẫu dùng để xem giao diện. AI tóm tắt hoạt động trên tin tuyển dụng thật do HR đăng.
-          </p>
-        ) : loading ? (
+        {loading ? (
           <div className="jd-ai-message" role="status">
             <RotateCw className="jd-ai-spin" size={18} /> Đang đọc JD và đối chiếu căn cứ…
           </div>
@@ -133,7 +131,6 @@ export function JobAiSummary({
     </section>
   )
 }
-
 export function JobSummaryContent({ summary }: { summary: JobSummary }) {
   const sources = new Map(summary.sources.map((source) => [source.id, source]))
   return (

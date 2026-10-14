@@ -60,12 +60,23 @@ public class ApplicationService {
   if(r.getVersion()!=input.resumeVersion()) throw conflict("CV vừa thay đổi. Hãy tải lại và xem bản mới trước khi nộp.");
   UUID id=UUID.randomUUID();
   String letter=input.coverLetter()==null || input.coverLetter().isBlank()?null:input.coverLetter().trim();
+  String format=input.submissionFormat()==null?"BUILDER":input.submissionFormat();
+  UUID document="ORIGINAL_PDF".equals(format)?r.getSourceDocumentId():null;
+  var resumeContent=mapper.valueToTree(ResumeService.dto(r));
+  if ("ORIGINAL_PDF".equals(format)) {
+   var originals=jdbc.query("select parsed_content::text from candidate.resume_documents where id=? and candidate_id=? and status='PARSED'",(rs,n)->rs.getString(1),document,u.getId());
+   if(originals.isEmpty()) throw conflict("CV này chưa có PDF gốc hợp lệ.");
+   var parsed=mapper.readTree(originals.getFirst());
+   // Score the extraction of the chosen original, never later edits in the builder.
+   for(String field:List.of("fullName","email","phone","location","desiredPosition","summary","githubUrl","linkedinUrl","portfolioUrl","skills","experiences","educations","projects","certifications","languages","awards","activities","extraSections"))
+    ((tools.jackson.databind.node.ObjectNode)resumeContent).set(field,parsed.path(field));
+  }
   var jobSnapshot=snapshot(j);
   String contextHash=assessmentContexts.jobHash(mapper.valueToTree(jobSnapshot));
-  jdbc.update("insert into recruitment.applications(id,job_id,candidate_id,resume_id,status,cover_letter,job_version,job_snapshot,ai_job_context_hash,version,applied_at,updated_at) values(?,?,?,?,'SUBMITTED',?,?,?::jsonb,?,0,?,?)",
-   id,j.getId(),u.getId(),r.getId(),letter,j.getVersion(),mapper.writeValueAsString(jobSnapshot),contextHash,Timestamp.from(now),Timestamp.from(now));
+  jdbc.update("insert into recruitment.applications(id,job_id,candidate_id,resume_id,status,cover_letter,job_version,job_snapshot,ai_job_context_hash,version,applied_at,updated_at,submission_format,source_document_id) values(?,?,?,?,'SUBMITTED',?,?,?::jsonb,?,0,?,?,?,?)",
+   id,j.getId(),u.getId(),r.getId(),letter,j.getVersion(),mapper.writeValueAsString(jobSnapshot),contextHash,Timestamp.from(now),Timestamp.from(now),format,document);
   jdbc.update("insert into recruitment.application_resume_snapshots(application_id,source_resume_version,schema_version,content,captured_at) values(?,?,1,?::jsonb,?)",
-   id,r.getVersion(),mapper.writeValueAsString(ResumeService.dto(r)),Timestamp.from(now));
+   id,r.getVersion(),mapper.writeValueAsString(resumeContent),Timestamp.from(now));
   jdbc.update("insert into recruitment.application_status_history(id,application_id,to_status,changed_by,created_at) values(?,?,'SUBMITTED',?,?)",UUID.randomUUID(),id,u.getId(),Timestamp.from(now));
   aiTasks.enqueue(id);
   return detail(auth,false,id);
@@ -79,7 +90,7 @@ public class ApplicationService {
   User u=actor(auth,staff);
   var args=new ArrayList<Object>();args.add(id);if(!staff)args.add(u.getId());
   var results=jdbc.query("select a.*,s.content::text as resume_content from recruitment.applications a join recruitment.application_resume_snapshots s on s.application_id=a.id where a.id=?"+(staff?"":" and a.candidate_id=?"),
-   (rs,n)->new ApplicationDto(rs.getObject("id",UUID.class),rs.getObject("job_id",UUID.class),rs.getObject("candidate_id",UUID.class),rs.getObject("resume_id",UUID.class),rs.getString("status"),rs.getString("cover_letter"),rs.getLong("job_version"),rs.getLong("version"),rs.getTimestamp("applied_at").toInstant(),rs.getTimestamp("updated_at").toInstant(),mapper.readValue(rs.getString("job_snapshot"),RecruiterJobDto.class),mapper.readValue(rs.getString("resume_content"),ResumeDto.class),history(id)),args.toArray());
+   (rs,n)->new ApplicationDto(rs.getObject("id",UUID.class),rs.getObject("job_id",UUID.class),rs.getObject("candidate_id",UUID.class),rs.getObject("resume_id",UUID.class),rs.getString("status"),rs.getString("cover_letter"),rs.getLong("job_version"),rs.getLong("version"),rs.getTimestamp("applied_at").toInstant(),rs.getTimestamp("updated_at").toInstant(),mapper.readValue(rs.getString("job_snapshot"),RecruiterJobDto.class),mapper.readValue(rs.getString("resume_content"),ResumeDto.class),history(id),rs.getString("submission_format"),rs.getObject("source_document_id",UUID.class)),args.toArray());
   return results.stream().findFirst().orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy đơn ứng tuyển."));
  }
  private List<ApplicationDto.HistoryDto> history(UUID id) {

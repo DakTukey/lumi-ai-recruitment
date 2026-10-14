@@ -1,4 +1,4 @@
-import { get, post, put } from './api'
+import { get, post, put, upload } from './api'
 import type { Department } from './job.service'
 import type { PaginatedResponse } from '../types/api'
 import type { JobStatus } from '../types/domain'
@@ -169,4 +169,83 @@ export async function transitionRecruiterJob(
       })
     ).data,
   )
+}
+
+export type ParsedJobDraftResponse = {
+  title?: string
+  category?: string
+  headcount?: string
+  location?: string
+  level?: string
+  mode?: string
+  employmentType?: string
+  salaryMode?: string
+  salaryMin?: string
+  salaryMax?: string
+  deadline?: string
+  description?: string
+  requirements?: string
+  benefits?: string
+  skills?: { name: string; required: boolean }[]
+  criteria?: { id: string; type: string; description: string; required: boolean; weight: number }[]
+  suggestedDepartment?: string
+  departmentId?: string
+}
+
+export function mapParsedToDraft(parsed: ParsedJobDraftResponse): JobDraft {
+  return {
+    title: parsed.title || '',
+    category: parsed.category || 'Công nghệ',
+    headcount: parsed.headcount || '1',
+    location: parsed.location || 'Đà Nẵng',
+    level: parsed.level || 'Middle',
+    mode: parsed.mode || 'Hybrid',
+    employmentType: parsed.employmentType || 'FULL_TIME',
+    salaryMode: (parsed.salaryMode as any) || 'NEGOTIABLE',
+    salaryMin: parsed.salaryMin || '',
+    salaryMax: parsed.salaryMax || '',
+    deadline: parsed.deadline || '',
+    description: parsed.description || '',
+    requirements: parsed.requirements || '',
+    benefits: parsed.benefits || '',
+    skills: (parsed.skills || []).map((s) => ({ name: s.name, required: s.required })),
+    criteria: (parsed.criteria || []).map((c, i) => ({
+      id: c.id || `crit-${i + 1}`,
+      type: (c.type as any) || 'EXPERIENCE',
+      description: c.description || '',
+      required: c.required ?? true,
+      weight: Number(c.weight) || 20,
+    })),
+    departmentId: parsed.departmentId || '',
+  }
+}
+
+export async function parseJobDraft(input: {
+  file?: File | null
+  text?: string
+}): Promise<JobDraft> {
+  const form = new FormData()
+  if (input.file) {
+    form.append('file', input.file)
+  }
+  if (input.text) {
+    form.append('text', input.text)
+  }
+  const res = await upload<ParsedJobDraftResponse>('/recruiter/jobs/ai-parse-jd', form)
+  return mapParsedToDraft(res.data)
+}
+
+export async function generateJobDraft(brief: {
+  title: string
+  level?: string
+  location?: string
+  mode?: string
+  skills?: string
+  requirements?: string
+  tone?: string
+}): Promise<JobDraft> {
+  const res = await post<ParsedJobDraftResponse>('/recruiter/jobs/ai-generate-jd', brief, {
+    timeoutMs: 65000,
+  })
+  return mapParsedToDraft(res.data)
 }

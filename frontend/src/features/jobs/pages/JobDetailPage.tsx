@@ -1,37 +1,35 @@
-import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  Bookmark,
-  MapPin,
-  BriefcaseBusiness,
-  Users,
-  FileCheck2,
-  Clock3,
   Banknote,
+  Bookmark,
+  BriefcaseBusiness,
   CalendarDays,
   Check,
+  Clock3,
   Copy,
-  Sparkles,
+  FileCheck2,
+  MapPin,
   ScanLine,
+  Sparkles,
+  Users,
 } from 'lucide-react'
+import type { MouseEvent } from 'react'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../app/providers/auth-context'
-import { useDemo } from '../../../app/providers/demo-context'
-import { getJobById } from '../../../services/job.service'
-import { ApiError } from '../../../services/api'
-import type { Job } from '../../../types/domain'
+import { useSavedJobs } from '../../../app/providers/saved-jobs-context'
 import { Modal } from '../../../components/ui/Modal'
+import { ApiError } from '../../../services/api'
+import { getJobById } from '../../../services/job.service'
+import type { Job } from '../../../types/domain'
 import { ApplyWithResume } from '../../applications/components/ApplyWithResume'
-import { candidatePreviewJobs } from '../candidate-job-preview'
 import { jobDetailPath, safeJobListPath } from '../candidate-job-route'
-import { readJobBrowseSnapshot } from '../job-browse-state'
 import { JobAiSummary } from '../components/JobAiSummary'
 import { JobMatchPanel } from '../components/JobMatchPanel'
+import { readJobBrowseSnapshot } from '../job-browse-state'
 import '../styles/candidate-job-detail.css'
-
 const employmentLabels: Record<string, string> = {
   FULL_TIME: 'Toàn thời gian',
   PART_TIME: 'Bán thời gian',
@@ -70,32 +68,31 @@ export function JobDetailPage() {
   const [params, setParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const sampleMode = params.get('data') === 'sample'
-  const from = safeJobListPath(params.get('from'), sampleMode)
-  const state = location.state as { listKey?: string; fromList?: string } | null
+
+  const from = safeJobListPath(params.get('from'))
+  const state = location.state as {
+    listKey?: string
+    fromList?: string
+  } | null
   const { user } = useAuth()
-  const { saved, toggleSaved } = useDemo()
+  const { saved, toggleSaved } = useSavedJobs()
   const [retry, setRetry] = useState(0)
   const [busy, setBusy] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
   const [shareLink, setShareLink] = useState('')
   const [matchFor, setMatchFor] = useState<string | null>(null)
   const key = `${jobId}:${retry}`
-  const [result, setResult] = useState<{ key: string; job?: Job; error?: string } | null>(null)
+  const [result, setResult] = useState<{
+    key: string
+    job?: Job
+    error?: string
+  } | null>(null)
   const current = result?.key === key ? result : null
-  const sampleJob = sampleMode
-    ? candidatePreviewJobs.find((job) => String(job.id) === jobId)
-    : undefined
-  const job = sampleMode ? sampleJob : current?.job
+  const job = current?.job
   const jobTitle = job?.title
-  const loading = !sampleMode && !current
-  const error = sampleMode
-    ? !sampleJob
-      ? 'Không tìm thấy công việc mẫu này.'
-      : ''
-    : current?.error
+  const loading = !current
+  const error = current?.error
   useEffect(() => {
-    if (sampleMode) return
     let active = true
     getJobById(jobId)
       .then((job) => {
@@ -114,7 +111,7 @@ export function JobDetailPage() {
     return () => {
       active = false
     }
-  }, [jobId, key, sampleMode])
+  }, [jobId, key])
   useEffect(() => {
     const original = document.title
     document.title = jobTitle ? `${jobTitle} · Lumi Careers` : 'Chi tiết công việc · Lumi Careers'
@@ -133,7 +130,7 @@ export function JobDetailPage() {
           !event.shiftKey &&
           !event.altKey &&
           state?.listKey &&
-          safeJobListPath(state.fromList, sampleMode) === from &&
+          safeJobListPath(state.fromList) === from &&
           readJobBrowseSnapshot(state.listKey, user?.id)
         ) {
           event.preventDefault()
@@ -155,7 +152,7 @@ export function JobDetailPage() {
             <p role={loading ? 'status' : 'alert'}>
               {loading ? 'Đang tải thông tin tuyển dụng.' : error}
             </p>
-            {!loading && !sampleMode && (
+            {!loading && (
               <button className="button" onClick={() => setRetry(retry + 1)}>
                 Thử lại <ArrowRight size={16} />
               </button>
@@ -166,7 +163,7 @@ export function JobDetailPage() {
     )
   const isSaved = saved.includes(job.id)
   const wrongRole = Boolean(user && user.role !== 'CANDIDATE')
-  const canApply = !sampleMode && !wrongRole
+  const canApply = !wrongRole
   const applying = params.get('apply') === '1' && canApply
   const setApplying = (open: boolean, resumeId?: string) => {
     if (busy) return
@@ -188,7 +185,7 @@ export function JobDetailPage() {
       block: 'start',
     })
   }
-  const applyLabel = sampleMode ? 'Tin mẫu · Chưa nhận hồ sơ' : 'Ứng tuyển vị trí này'
+  const applyLabel = 'Ứng tuyển vị trí này'
   const matchOpen =
     matchFor === String(job.id) || (matchFor === null && params.get('match') === '1')
   const openMatch = () => {
@@ -212,7 +209,7 @@ export function JobDetailPage() {
     </button>
   )
   async function copyLink() {
-    const url = `${window.location.origin}${jobDetailPath(job!.id, sampleMode)}`
+    const url = `${window.location.origin}${jobDetailPath(job!.id)}`
     try {
       await navigator.clipboard.writeText(url)
       setShareStatus('Đã sao chép liên kết công việc.')
@@ -231,15 +228,7 @@ export function JobDetailPage() {
             LUMI STUDIO <span aria-hidden="true">/</span> CAREERS
           </span>
         </nav>
-        {sampleMode && (
-          <div className="jd-sample-notice" role="note">
-            <Sparkles size={16} />
-            <span>
-              <strong>Bản xem mẫu.</strong> Nội dung minh họa để khám phá giao diện, chưa nhận hồ sơ
-              ứng tuyển.
-            </span>
-          </div>
-        )}
+
         <header className="jd-hero">
           <div className="jd-hero-copy">
             <div className="jd-kicker">
@@ -297,7 +286,7 @@ export function JobDetailPage() {
               <span>
                 Hồ sơ đã nộp
                 <strong>
-                  {!sampleMode && job.applicationCount != null
+                  {job.applicationCount != null
                     ? `${job.applicationCount.toLocaleString('vi-VN')} hồ sơ`
                     : 'Chưa thống kê'}
                 </strong>
@@ -320,7 +309,6 @@ export function JobDetailPage() {
         <JobAiSummary
           key={`${job.id}:${retry}`}
           jobId={String(job.id)}
-          sampleMode={sampleMode}
           onRefreshJob={() => setRetry(retry + 1)}
         />
         <div className="jd-layout">
@@ -328,7 +316,6 @@ export function JobDetailPage() {
             <JobMatchPanel
               key={`${job.id}:${user?.id ?? 'guest'}:${retry}`}
               job={job}
-              sampleMode={sampleMode}
               canApply={canApply}
               onApply={(resumeId) => setApplying(true, resumeId)}
               initialResumeId={params.get('resumeId') ?? undefined}
@@ -427,11 +414,7 @@ export function JobDetailPage() {
                 <br />
                 điều có ý nghĩa<span>.</span>
               </h2>
-              <p>
-                {sampleMode
-                  ? 'Khám phá nội dung và lưu lại vị trí bạn quan tâm.'
-                  : 'Chọn CV phù hợp, xem lại hồ sơ và gửi đến đội ngũ tuyển dụng.'}
-              </p>
+              <p>{'Chọn CV phù hợp, xem lại hồ sơ và gửi đến đội ngũ tuyển dụng.'}</p>
               <div className="jd-apply-summary">
                 <span>{job.title}</span>
                 <span>
@@ -450,7 +433,7 @@ export function JobDetailPage() {
               <button
                 className="jd-match-link"
                 type="button"
-                disabled={wrongRole && !sampleMode}
+                disabled={wrongRole}
                 onClick={openMatch}
               >
                 <ScanLine size={16} />
@@ -458,11 +441,9 @@ export function JobDetailPage() {
               </button>
               {saveButton()}
               <p className="jd-apply-note">
-                {wrongRole && !sampleMode
+                {wrongRole
                   ? 'Tính năng ứng tuyển dành cho tài khoản ứng viên.'
-                  : sampleMode
-                    ? 'Tin mẫu không gửi đơn đến nhà tuyển dụng.'
-                    : 'Sử dụng CV đã hoàn tất để ứng tuyển.'}
+                  : 'Sử dụng CV đã hoàn tất để ứng tuyển.'}
               </p>
             </section>
             <section className="jd-prepare">
@@ -495,7 +476,7 @@ export function JobDetailPage() {
       </div>
       <div className="jd-mobile-actions">
         <button className="jd-apply-button" disabled={!canApply} onClick={() => setApplying(true)}>
-          {sampleMode ? 'Tin mẫu' : wrongRole ? 'Dành cho ứng viên' : 'Ứng tuyển'}
+          {wrongRole ? 'Dành cho ứng viên' : 'Ứng tuyển'}
           <ArrowUpRight size={18} />
         </button>
         {saveButton(true)}

@@ -1,6 +1,9 @@
+import { ArrowLeft, ArrowRight, Check, Eye, FileText, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, Plus, Send, X } from 'lucide-react'
-import type { JobDraft, RecruiterJob, SalaryMode, CriterionType } from '../recruiter-model'
+import type { Department } from '../../../services/job.service'
+import { getRecruiterPositions, type JobPosition } from '../../../services/recruiter-job.service'
+import { selectJobLevel, selectJobPosition, suggestedJobTitle } from '../job-position-model'
+import type { CriterionType, JobDraft, RecruiterJob, SalaryMode } from '../recruiter-model'
 import {
   contractLabels,
   criterionLabels,
@@ -10,15 +13,6 @@ import {
   validateDraft,
 } from '../recruiter-model'
 import { RecruiterJobPreview } from './RecruiterJobPreview'
-import type { Department } from '../../../services/job.service'
-import { getRecruiterPositions, type JobPosition } from '../../../services/recruiter-job.service'
-import {
-  samplePositionNames,
-  selectJobPosition,
-  selectJobLevel,
-  suggestedJobTitle,
-} from '../job-position-model'
-
 const steps = ['Thông tin vị trí', 'Yêu cầu & nội dung', 'Xem trước']
 const firstFields = new Set([
   'title',
@@ -35,7 +29,6 @@ export function RecruiterJobForm({
   onSave,
   onCancel,
   onDirty,
-  demo = true,
   departments = [],
   departmentError = false,
   saving = false,
@@ -47,7 +40,7 @@ export function RecruiterJobForm({
   onSave: (draft: JobDraft, publish: boolean) => void
   onCancel: () => void
   onDirty: () => void
-  demo?: boolean
+
   departments?: Department[]
   departmentError?: boolean
   onCreateDepartment?: (name: string) => Promise<Department>
@@ -58,8 +51,7 @@ export function RecruiterJobForm({
 }) {
   const [draft, setDraft] = useState<JobDraft>(() => {
     const initial = structuredClone(
-      job?.draft ??
-        initialDraft ?? { ...emptyDraft(), ...(demo ? {} : { category: '', departmentId: '' }) },
+      job?.draft ?? initialDraft ?? { ...emptyDraft(), ...{ category: '', departmentId: '' } },
     )
     return { ...initial, location: jobWorkLocation(initial.mode) }
   })
@@ -79,16 +71,10 @@ export function RecruiterJobForm({
   } | null>(null)
   const positionKey = `${draft.departmentId}:${positionRetry}`
   const currentPositions = positionResult?.key === positionKey ? positionResult : null
-  const positions = demo
-    ? (samplePositionNames[draft.category] ?? []).map((name) => ({
-        id: `sample-${name}`,
-        departmentId: draft.category,
-        name,
-      }))
-    : (currentPositions?.items ?? [])
-  const positionsLoading = !demo && !!draft.departmentId && !currentPositions
+  const positions = currentPositions?.items ?? []
+  const positionsLoading = !!draft.departmentId && !currentPositions
   useEffect(() => {
-    if (demo || !draft.departmentId) return
+    if (!draft.departmentId) return
     let active = true
     getRecruiterPositions(draft.departmentId)
       .then((items) => {
@@ -105,7 +91,7 @@ export function RecruiterJobForm({
     return () => {
       active = false
     }
-  }, [demo, draft.departmentId, positionKey])
+  }, [draft.departmentId, positionKey])
   const alert = useRef<HTMLDivElement>(null)
   const change = <K extends keyof JobDraft>(key: K, value: JobDraft[K]) => {
     onDirty()
@@ -128,7 +114,7 @@ export function RecruiterJobForm({
   })
   function check(all = true, publish = false) {
     const result = validateDraft(draft, publish)
-    if (!demo && !departments.some((item) => item.id === draft.departmentId))
+    if (!departments.some((item) => item.id === draft.departmentId))
       result.departmentId = 'Chọn phòng ban đang hoạt động.'
     if (!positions.some((item) => item.id === draft.positionId))
       result.positionId = 'Chọn vị trí đang hoạt động thuộc phòng ban.'
@@ -186,7 +172,6 @@ export function RecruiterJobForm({
     }),
     [draft],
   )
-
   return (
     <form
       className="hr-job-form"
@@ -214,13 +199,9 @@ export function RecruiterJobForm({
           ))}
         </div>
         <p className="hr-form-intro">
-          {!demo
-            ? job
-              ? 'Sửa nội dung và lưu thay đổi. Tin giữ nguyên trạng thái; bạn đăng hoặc mở lại sau khi đã kiểm tra.'
-              : 'Soạn nội dung và lưu bản nháp. Tin chưa hiển thị cho ứng viên cho đến khi được đăng tuyển.'
-            : job
-              ? 'Chỉnh sửa nội dung tin mẫu. Các thay đổi không ghi vào dữ liệu thật.'
-              : 'Soạn tin, kiểm tra nội dung rồi lưu nháp hoặc thử đăng. Thao tác chỉ trong bản mẫu.'}
+          {job
+            ? 'Sửa nội dung và lưu thay đổi. Tin giữ nguyên trạng thái; bạn đăng hoặc mở lại sau khi đã kiểm tra.'
+            : 'Soạn nội dung và lưu bản nháp. Tin chưa hiển thị cho ứng viên cho đến khi được đăng tuyển.'}
         </p>
         {saveError && (
           <div className="hr-form-error" role="alert">
@@ -246,16 +227,14 @@ export function RecruiterJobForm({
                   Phòng ban <span>*</span>
                   <select
                     required
-                    value={demo ? draft.category : (draft.departmentId ?? '')}
+                    value={draft.departmentId ?? ''}
                     onChange={(event) => {
                       const value = event.target.value
                       onDirty()
                       setDraft((previous) => ({
                         ...selectJobPosition(previous, '', ''),
-                        departmentId: demo ? '' : value,
-                        category: demo
-                          ? value
-                          : (departments.find((item) => item.id === value)?.name ?? ''),
+                        departmentId: value,
+                        category: departments.find((item) => item.id === value)?.name ?? '',
                       }))
                       setErrors((previous) =>
                         Object.fromEntries(
@@ -268,15 +247,11 @@ export function RecruiterJobForm({
                     {...errorProps('departmentId')}
                   >
                     <option value="">Chọn phòng ban</option>
-                    {!demo
-                      ? departments.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))
-                      : Object.keys(samplePositionNames).map((name) => (
-                          <option key={name}>{name}</option>
-                        ))}
+                    {departments.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
                   </select>
                   {fieldError('departmentId')}
                 </label>
@@ -284,7 +259,7 @@ export function RecruiterJobForm({
                   Vị trí / chức danh <span>*</span>
                   <select
                     required
-                    disabled={positionsLoading || !(demo ? draft.category : draft.departmentId)}
+                    disabled={positionsLoading || !draft.departmentId}
                     value={draft.positionId ?? ''}
                     onChange={(event) => {
                       const position = positions.find((item) => item.id === event.target.value)
@@ -382,10 +357,10 @@ export function RecruiterJobForm({
                       Chưa tải được phòng ban. Đóng form và tải lại danh sách để thử lại.
                     </p>
                   )}
-                  {!demo && !departments.length && !departmentError && (
+                  {!departments.length && !departmentError && (
                     <p>Chưa có phòng ban. Liên hệ quản trị viên để bổ sung danh mục.</p>
                   )}
-                  {!demo && currentPositions?.error && (
+                  {currentPositions?.error && (
                     <div role="alert">
                       <p className="hr-field-error">{currentPositions.error}</p>
                       <button
@@ -399,7 +374,7 @@ export function RecruiterJobForm({
                   )}
                   {!positionsLoading &&
                     !currentPositions?.error &&
-                    !!(demo ? draft.category : draft.departmentId) &&
+                    !!draft.departmentId &&
                     !positions.length && (
                       <p>
                         Phòng ban này chưa có vị trí tuyển dụng. Liên hệ quản trị viên để bổ sung
@@ -777,7 +752,7 @@ export function RecruiterJobForm({
           <>
             <div className="hr-preview-label">
               <Eye size={17} />
-              <span>Bản xem trước nội dung ứng viên sẽ đọc{demo ? ' · Dữ liệu mẫu' : ''}</span>
+              <span>Bản xem trước nội dung ứng viên sẽ đọc{''}</span>
             </div>
             <RecruiterJobPreview job={preview} />
           </>
@@ -794,15 +769,7 @@ export function RecruiterJobForm({
           <div>
             <button type="submit" className="hr-button secondary">
               <FileText size={16} />
-              {saving
-                ? 'Đang lưu…'
-                : !demo
-                  ? job
-                    ? 'Lưu thay đổi'
-                    : 'Lưu bản nháp'
-                  : job
-                    ? 'Lưu thay đổi mẫu'
-                    : 'Lưu nháp mẫu'}
+              {saving ? 'Đang lưu…' : job ? 'Lưu thay đổi' : 'Lưu bản nháp'}
             </button>
             {step < 2 ? (
               <button
@@ -816,19 +783,7 @@ export function RecruiterJobForm({
                 <ArrowRight size={16} />
               </button>
             ) : (
-              demo &&
-              (!job || job.status === 'DRAFT') && (
-                <button
-                  type="button"
-                  className="hr-button"
-                  onClick={() => {
-                    if (check(true, true)) onSave(draft, true)
-                  }}
-                >
-                  <Send size={16} />
-                  Đăng tin mẫu
-                </button>
-              )
+              false
             )}
           </div>
         </div>

@@ -92,6 +92,14 @@ public class ResumeService {
         if (input.languages() != null) r.setLanguages(List.copyOf(input.languages()));
         if (input.awards() != null) r.setAwards(List.copyOf(input.awards()));
         if (input.activities() != null) r.setActivities(List.copyOf(input.activities()));
+        if (input.extraSections() != null) r.setExtraSections(List.copyOf(input.extraSections()));
+        if (input.sourceDocumentId() != null) {
+            if (!Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from candidate.resume_documents where id=? and candidate_id=? and status='PARSED')", Boolean.class, input.sourceDocumentId(), owner.getUserId())))
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy PDF đã xử lý của bạn.");
+            if (id != null && !input.sourceDocumentId().equals(r.getSourceDocumentId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Hãy tạo CV mới để dùng PDF khác.");
+            r.setSourceDocumentId(input.sourceDocumentId());
+        }
         r.setTemplate(input.template()); r.setStatus(input.status());
         if (input.status() == ResumeStatus.DRAFT) r.setDefaultResume(false);
         r.setUpdatedAt(Instant.now());
@@ -132,6 +140,6 @@ public class ResumeService {
                 r.getPhone(), r.getLocation(), r.getDesiredPosition(), r.getSummary(), r.getGithubUrl(), r.getLinkedinUrl(),
                 r.getPortfolioUrl(), r.getSkills(), r.getExperiences(), r.getEducations(), r.getProjects(), r.getCertifications(),
                 r.getLanguages(), r.getAwards(), r.getActivities(),
-                r.getTemplate(), r.getStatus(), r.isDefaultResume(), r.getVersion(), r.getCreatedAt(), r.getUpdatedAt());
+                r.getTemplate(), r.getStatus(), r.isDefaultResume(), r.getVersion(), r.getCreatedAt(), r.getUpdatedAt(), r.getSourceDocumentId(), r.getExtraSections());
     }
 }

@@ -96,4 +96,112 @@ public class AiServiceClient {
                 "Chưa thể tóm tắt lúc này. Bạn vẫn có thể đọc nội dung tuyển dụng bên dưới.");
         }
     }
+    public com.lumi.recruitment.dto.ParsedResumeDto parseCv(byte[] fileBytes, String filename) {
+        try {
+            org.springframework.util.MultiValueMap<String, Object> parts = new org.springframework.util.LinkedMultiValueMap<>();
+            var resource = new org.springframework.core.io.ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return filename != null && !filename.isBlank() ? filename : "cv.pdf";
+                }
+            };
+            parts.add("file", resource);
+            var result = restClient().post().uri("/api/cv-parser")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(parts)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.ParsedResumeDto.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("CV parsing error from AI service (status {})", e.getStatusCode());
+            if (e.getStatusCode().value() == 422) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Không thể bóc tách nội dung file này. Hãy thử file PDF khác hoặc nhập vào form.");
+            }
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI chưa bóc tách được CV lúc này. Bạn vẫn có thể tự điền vào form; hãy thử lại sau.");
+        } catch (Exception e) {
+            log.warn("CV parse request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI chưa bóc tách được CV lúc này. Bạn vẫn có thể tự điền vào form; hãy thử lại sau.");
+        }
+    }
+
+    public com.lumi.recruitment.dto.ParsedJobDraftDto parseJd(byte[] fileBytes, String filename, String text) {
+        try {
+            org.springframework.util.MultiValueMap<String, Object> parts = new org.springframework.util.LinkedMultiValueMap<>();
+            if (fileBytes != null && fileBytes.length > 0) {
+                var resource = new org.springframework.core.io.ByteArrayResource(fileBytes) {
+                    @Override
+                    public String getFilename() {
+                        return filename != null && !filename.isBlank() ? filename : "jd.pdf";
+                    }
+                };
+                parts.add("file", resource);
+            }
+            if (text != null && !text.isBlank()) {
+                parts.add("text", text);
+            }
+            var result = restClient().post().uri("/api/jobs/parse-jd")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(parts)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.ParsedJobDraftDto.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("JD parsing error from AI service (status {})", e.getStatusCode());
+            if (e.getStatusCode().value() == 422) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Không thể bóc tách nội dung JD này. Hãy kiểm tra lại tài liệu hoặc dán văn bản trực tiếp.");
+            }
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI phân tích JD tạm thời không khả dụng. Bạn vẫn có thể nhập thủ công; hãy thử lại sau.");
+        } catch (Exception e) {
+            log.warn("JD parse request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI phân tích JD tạm thời không khả dụng. Bạn vẫn có thể nhập thủ công; hãy thử lại sau.");
+        }
+    }
+
+    public com.lumi.recruitment.dto.ParsedJobDraftDto generateJd(com.lumi.recruitment.dto.GenerateJobDraftRequest request) {
+        try {
+            var result = restClient().post().uri("/api/jobs/generate-jd")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.ParsedJobDraftDto.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("JD generate error from AI service (status {})", e.getStatusCode());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI soạn JD tạm thời không khả dụng. Bạn vẫn có thể nhập thủ công; hãy thử lại sau.");
+        } catch (Exception e) {
+            log.warn("JD generate request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI soạn JD tạm thời không khả dụng. Bạn vẫn có thể nhập thủ công; hãy thử lại sau.");
+        }
+    }
+
+    public com.lumi.recruitment.dto.GeneratedEmailDto generateRecruitmentEmail(java.util.Map<String, Object> payload) {
+        try {
+            var result = restClient().post().uri("/api/emails/generate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.GeneratedEmailDto.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("Email generate error from AI service (status {})", e.getStatusCode());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI tạo email tạm thời không khả dụng. Vui lòng thử lại sau.");
+        } catch (Exception e) {
+            log.warn("Email generate request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ AI tạo email tạm thời không khả dụng. Vui lòng thử lại sau.");
+        }
+    }
 }

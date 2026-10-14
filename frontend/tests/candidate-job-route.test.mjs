@@ -21,14 +21,14 @@ const { readJobBrowseSnapshot, saveJobBrowseSnapshot } = await load(
   '../src/features/jobs/job-browse-state.ts',
 )
 const id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-test('detail links keep sample mode explicit and preserve a safe list source', () => {
+test('detail links discard retired sample mode and preserve a safe list source', () => {
   const url = new URL(
-    jobDetailPath(1, true, '/saved?data=sample#opportunities'),
+    jobDetailPath(1, '/saved?data=sample#opportunities'),
     'https://lumi.local',
   )
   assert.equal(url.pathname, '/jobs/1')
-  assert.equal(url.searchParams.get('data'), 'sample')
-  assert.equal(url.searchParams.get('from'), '/saved?data=sample#opportunities')
+  assert.equal(url.searchParams.get('data'), null)
+  assert.equal(url.searchParams.get('from'), '/saved#opportunities')
   assert.equal(jobDetailPath(id), `/jobs/${id}`)
 })
 test('return links cannot point outside the job list or forward arbitrary parameters', () => {
@@ -43,8 +43,8 @@ test('return links cannot point outside the job list or forward arbitrary parame
   ]) {
     assert.equal(safeJobListPath(path), '/#opportunities')
   }
-  assert.equal(safeJobListPath('/saved?token=secret&data=sample#bad'), '/saved?data=sample')
-  assert.equal(safeJobListPath(null, true), '/?data=sample#opportunities')
+  assert.equal(safeJobListPath('/saved?token=secret&data=sample#bad'), '/saved')
+  assert.equal(safeJobListPath(null), '/#opportunities')
 })
 test('login resumes the application on the job page with only permitted destinations', () => {
   assert.equal(candidateJobLoginDestination(jobApplicationPath(id)), `/jobs/${id}?apply=1`)

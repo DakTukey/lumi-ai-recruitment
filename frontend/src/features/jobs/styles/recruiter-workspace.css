@@ -2452,6 +2452,30 @@
   font-size: 12px;
   line-height: 1.8;
 }
+.hr-ai-ready {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: rgba(245, 158, 11, 0.05);
+}
+.hr-ai-ready > svg {
+  flex-shrink: 0;
+  color: #f59e0b;
+  margin-top: 2px;
+}
+.hr-ai-ready strong {
+  font-size: 13px;
+  color: var(--hr-text);
+}
+.hr-workspace .hr-ai-ready p {
+  margin: 6px 0 0;
+  color: var(--hr-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
 .hr-create-bottom,
 .hr-create-flow-head,
 .hr-ai-create-actions {

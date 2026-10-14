@@ -11,9 +11,12 @@ const code = ts.transpileModule(
     compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
   },
 ).outputText
-const { jobMatchOverview, sampleJobMatch, sampleMatchResumes, isCurrentJobMatch } = await import(
+const { jobMatchOverview, isCurrentJobMatch } = await import(
   `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
 )
+const fixture = ts.transpileModule(await readFile(new URL('./fixtures/candidate-job-match.ts', import.meta.url), 'utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
+const {sampleJobMatch,sampleMatchResumes} = await import(`data:text/javascript;base64,${Buffer.from(fixture).toString('base64')}`)
+
 test('empty or unweighted criteria do not invent an overall fit score', () => {
   assert.equal(jobMatchOverview([]).score, null)
   assert.equal(

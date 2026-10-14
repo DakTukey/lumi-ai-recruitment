@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Upload,
   UserRound,
   X,
 } from 'lucide-react'
@@ -119,8 +118,6 @@ export function ProfilePage() {
   }
   const [edit, setEdit] = useState<EditSection | null>(null)
   const [notice, setNotice] = useState('')
-  const [file, setFile] = useState<{ name: string; size: number } | null>(null)
-  const [fileError, setFileError] = useState('')
   const editTrigger = useRef<HTMLElement | null>(null)
   useEffect(() => {
     let active = true
@@ -484,51 +481,20 @@ export function ProfilePage() {
                   <span className="candidate-document-icon">
                     <FileText size={32} />
                   </span>
-                  <h3>{file ? 'Tệp PDF đã được chọn' : 'Tệp PDF từ máy'}</h3>
+                  <h3>Tải lên CV (PDF) & Quét bằng AI</h3>
                   <p>
-                    Chọn tệp để xem tên và kích thước. Chức năng tải PDF lên đang được phát triển.
+                    Tải tệp PDF từ máy của bạn. Trợ lý AI sẽ đọc hiểu cấu trúc, kỹ năng, kinh nghiệm và đưa vào trình tạo CV để bạn kiểm tra.
                   </p>
-                  <label className="button secondary candidate-file-button">
-                    <Upload size={17} />
-                    {file ? 'Chọn tệp khác' : 'Chọn CV từ máy'}
-                    <input
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      aria-label="Chọn CV hồ sơ"
-                      onChange={(event) => {
-                        const selected = event.target.files?.[0]
-                        if (!selected) return
-                        if (
-                          !selected.name.toLowerCase().endsWith('.pdf') ||
-                          selected.size > 5 * 1024 * 1024
-                        ) {
-                          setFileError('Vui lòng chọn tệp PDF tối đa 5 MB.')
-                          event.target.value = ''
-                          return
-                        }
-                        setFile({ name: selected.name, size: selected.size })
-                        setFileError('')
-                      }}
-                    />
-                  </label>
-                  <small>PDF · Tối đa 5 MB</small>
-                </div>
-                {file && (
-                  <div className="candidate-document-file">
-                    <FileText size={23} />
-                    <div>
-                      <strong>{file.name}</strong>
-                      <span>{Math.max(1, Math.round(file.size / 1024))} KB · Chưa tải lên</span>
-                    </div>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+                    <Link className="button primary" to="/cv-builder?import=pdf">
+                      <Sparkles size={16} />
+                      Quét CV bằng AI trong CV Builder
+                    </Link>
                   </div>
-                )}
-                {fileError && (
-                  <p className="form-error" role="alert">
-                    {fileError}
-                  </p>
-                )}
+                  <small>Hỗ trợ tệp PDF đa cột, Canva, TopCV · Tối đa 10 MB</small>
+                </div>
                 <p className="candidate-document-notice">
-                  Bản trải nghiệm: tệp bạn chọn chưa được tải lên hệ thống.
+                  Mẹo: Bạn có thể nhập nhanh tệp PDF trực tiếp trong trình tạo CV để tự động điền các mục.
                 </p>
               </ProfileCard>
             )}
