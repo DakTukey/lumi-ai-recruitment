@@ -1,5 +1,4 @@
 import {
-  Activity,
   ArrowUpRight,
   BriefcaseBusiness,
   Building2,
@@ -7,9 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Settings2,
   ShieldCheck,
-  Users,
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -30,12 +27,6 @@ const navigation = [
     description: 'Một góc nhìn toàn diện về không gian tuyển dụng của bạn.',
   },
   {
-    path: 'users',
-    label: 'Tài khoản',
-    icon: Users,
-    description: 'Quản lý thành viên, vai trò và quyền truy cập.',
-  },
-  {
     path: 'jobs',
     label: 'Tin tuyển dụng',
     icon: BriefcaseBusiness,
@@ -52,18 +43,6 @@ const navigation = [
     label: 'Vai trò & quyền',
     icon: ShieldCheck,
     description: 'Hiểu rõ phạm vi truy cập của từng vai trò.',
-  },
-  {
-    path: 'activity',
-    label: 'Nhật ký hoạt động',
-    icon: Activity,
-    description: 'Theo dõi các thay đổi trong hệ thống.',
-  },
-  {
-    path: 'settings',
-    label: 'Cài đặt',
-    icon: Settings2,
-    description: 'Thông tin và tùy chọn cho không gian doanh nghiệp.',
   },
 ]
 
@@ -431,26 +410,8 @@ export function AdminPage() {
                 </table>
               </div>
               <p className="admin-live-note">
-                Quyền được kiểm tra tại máy chủ. Chưa hỗ trợ thay đổi vai trò từ màn hình này.
+                Quyền được xác thực và phân bổ an toàn trực tiếp tại máy chủ theo vai trò người dùng.
               </p>
-            </section>
-          )}
-          {['users', 'activity', 'settings'].includes(section) && (
-            <section className="admin-panel">
-              <div className="admin-empty">
-                <ShieldCheck size={30} />
-                <h2>Chưa kết nối chức năng này</h2>
-                <p>
-                  {section === 'users'
-                    ? 'Danh sách tài khoản và thao tác thay đổi quyền chưa có API quản trị. Tài khoản đăng nhập hiện tại vẫn hoạt động bình thường.'
-                    : section === 'activity'
-                      ? 'Chưa có nhật ký quản trị tập trung. Lịch sử tin và đơn ứng tuyển xem tại từng hồ sơ trong không gian HR.'
-                      : 'Thông tin doanh nghiệp và cài đặt chung chưa có API lưu thay đổi.'}
-                </p>
-                <Link className="admin-btn" to="/recruiter">
-                  Mở không gian HR
-                </Link>
-              </div>
             </section>
           )}
           <footer className="admin-footer">

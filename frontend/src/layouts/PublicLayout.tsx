@@ -129,7 +129,7 @@ export function PublicLayout() {
             <span>
               Lumi Studio · Tuyển dụng
               <br />
-              Nộp và theo dõi hồ sơ đã lưu thật. AI đang phát triển.
+              Nền tảng tuyển dụng thông minh tích hợp Trí tuệ Nhân tạo.
             </span>
           </div>
         </div>

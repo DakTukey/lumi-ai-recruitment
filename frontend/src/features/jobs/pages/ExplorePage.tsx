@@ -246,7 +246,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                   </span>
                 </div>
               </div>
-              <div className="hero-art" aria-label="Minh họa đối chiếu CV với công việc">
+              <div className="hero-art" aria-label="Đối chiếu CV với công việc">
                 <div className="orbit orbit-one" />
                 <div className="orbit orbit-two" />
                 <span className="art-star">
@@ -267,7 +267,7 @@ export function ExplorePage({ savedOnly = false }: { savedOnly?: boolean }) {
                       <ScanLine size={19} />
                     </span>
                     <span>lumi intelligence</span>
-                    <span className="preview-demo">Minh họa</span>
+                    <span className="preview-demo">AI Match</span>
                   </div>
                   <div className="preview-job">
                     <div className="mini-mark">lumi</div>

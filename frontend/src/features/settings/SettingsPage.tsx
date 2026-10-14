@@ -73,27 +73,43 @@ export function SettingsPage() {
               <>
                 <p>
                   {section === 'security'
-                    ? 'Các tùy chọn bảo vệ tài khoản.'
+                    ? 'Các chính sách và tùy chọn bảo vệ tài khoản.'
                     : section === 'notifications'
-                      ? 'Chọn những cập nhật bạn muốn nhận từ Lumi.'
-                      : 'Kiểm soát cách chia sẻ hồ sơ và thông tin liên hệ.'}
+                      ? 'Cập nhật và thông báo từ hệ thống tuyển dụng Lumi.'
+                      : 'Quy định bảo mật và chia sẻ hồ sơ ứng tuyển.'}
                 </p>
-                <div className="settings-pending">
-                  <span>SẮP CÓ</span>
-                  <h3>
-                    {section === 'security'
-                      ? 'Đổi mật khẩu'
-                      : section === 'notifications'
-                        ? 'Tùy chọn nhận thông báo'
-                        : 'Tùy chọn chia sẻ hồ sơ'}
-                  </h3>
-                  <p>
-                    {section === 'security'
-                      ? 'Chức năng đổi mật khẩu đang được phát triển.'
-                      : section === 'notifications'
-                        ? 'Bạn sẽ có thể chọn nhận cập nhật về việc làm và quá trình ứng tuyển.'
-                        : 'Bạn sẽ có thể tùy chỉnh quyền hiển thị hồ sơ và thông tin liên hệ.'}
-                  </p>
+                <div className="settings-note">
+                  {section === 'security' ? (
+                    <>
+                      <LockKeyhole size={20} />
+                      <div>
+                        <strong>Bảo mật mật khẩu & phiên làm việc</strong>
+                        <p>
+                          Mật khẩu được mã hóa an toàn bằng thuật toán BCrypt. Phiên đăng nhập được quản lý bằng JWT token tự động xác thực với máy chủ.
+                        </p>
+                      </div>
+                    </>
+                  ) : section === 'notifications' ? (
+                    <>
+                      <Bell size={20} />
+                      <div>
+                        <strong>Kênh nhận thông báo tự động</strong>
+                        <p>
+                          Mọi thông báo về tiến độ xử lý hồ sơ, phản hồi từ nhà tuyển dụng và lịch phỏng vấn được gửi trực tiếp đến hộp thư: <strong>{user?.email || 'email đăng ký'}</strong>.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={20} />
+                      <div>
+                        <strong>Chính sách quyền riêng tư hồ sơ</strong>
+                        <p>
+                          CV và thông tin cá nhân của bạn chỉ được chia sẻ với nhà tuyển dụng liên quan khi bạn chủ động nộp đơn. Lumi cam kết không chia sẻ dữ liệu cho bên thứ ba.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}

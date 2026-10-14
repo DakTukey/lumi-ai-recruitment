@@ -821,14 +821,12 @@ export function RecruiterPage() {
               </button>
             </div>
           </div>
-          <div className={`hr-source-note ${''}`}>
-            <span className="hr-source-icon">{<Info size={18} />}</span>
+          <div className="hr-source-note">
+            <span className="hr-source-icon"><Info size={18} /></span>
             <div>
-              <strong>{'Đang xem dữ liệu tuyển dụng thật'}</strong>
+              <strong>Không gian quản lý tuyển dụng</strong>
               <p>
-                {
-                  'Tin tuyển dụng, đơn ứng tuyển, ghi chú và chuyển vòng đã lưu thật. CV tại lúc nộp được giữ nguyên. Mở từng hồ sơ để phân tích AI và xem kết quả đã lưu.'
-                }
+                Theo dõi quy trình tuyển dụng, quản lý đơn ứng tuyển và sử dụng AI để đánh giá độ phù hợp của ứng viên.
               </p>
             </div>
           </div>
