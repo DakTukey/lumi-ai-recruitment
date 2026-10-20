@@ -17,7 +17,10 @@ const api = urlFor(
 )
 const service = await import(
   urlFor(
-    (await compile('../src/services/interview-scorecard.service.ts')).replace("'./api'", `'${api}'`),
+    (await compile('../src/services/interview-scorecard.service.ts')).replace(
+      "'./api'",
+      `'${api}'`,
+    ),
   )
 )
 
@@ -33,6 +36,7 @@ test('interview scorecard service supports get, generate and save with proper CS
       return Response.json({
         data: {
           applicationId: 'app-999',
+          version: 3,
           interviewerName: 'HR Manager',
           status: 'DRAFT',
           overallScore: 4.5,
@@ -74,6 +78,7 @@ test('interview scorecard service supports get, generate and save with proper CS
     assert.equal(postCall.options.headers.get('X-CSRF-TOKEN'), 'scorecard-csrf')
 
     const saved = await service.saveInterviewScorecard('app-999', {
+      version: 3,
       status: 'COMPLETED',
       recommendation: 'STRONG_HIRE',
       overallNotes: 'Excellent performance',
@@ -85,8 +90,58 @@ test('interview scorecard service supports get, generate and save with proper CS
     assert.match(putCall.url, /\/recruiter\/applications\/app-999\/scorecard$/)
     assert.equal(putCall.options.headers.get('X-CSRF-TOKEN'), 'scorecard-csrf')
     assert.deepEqual(JSON.parse(putCall.options.body).status, 'COMPLETED')
+    assert.equal(JSON.parse(putCall.options.body).version, 3)
   } finally {
     globalThis.fetch = previous
   }
 })
 
+const model = await import(
+  urlFor(await compile('../src/features/applications/interview-scorecard-model.ts'))
+)
+test('only the interview stage allows scorecard mutations; other stages explain screening or read-only access', () => {
+  assert.equal(model.canWorkOnInterviewScorecard('INTERVIEW'), true)
+  for (const stage of ['SUBMITTED', 'REVIEWING', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN']) {
+    assert.equal(model.canWorkOnInterviewScorecard(stage), false)
+    assert.ok(model.scorecardStageMessage(stage).length > 0)
+  }
+  assert.match(model.scorecardStageMessage('SUBMITTED'), /HR.*chuyển hồ sơ.*Phỏng vấn/)
+  assert.match(model.scorecardStageMessage('REVIEWING'), /Điểm AI không tự chuyển vòng/)
+  assert.match(model.scorecardStageMessage('OFFER'), /xem lại/)
+  assert.match(model.scorecardStageMessage('REJECTED'), /không tạo mới hoặc chỉnh sửa/)
+})
+test('rated, noted and completed cards cannot regenerate; completion needs all scores and a recommendation', () => {
+  const base = {
+    status: 'DRAFT',
+    overallScore: null,
+    recommendation: null,
+    overallNotes: '',
+    sections: [
+      {
+        title: 'Test',
+        questions: [
+          { score: null, notes: '' },
+          { score: null, notes: '' },
+        ],
+      },
+    ],
+  }
+  assert.equal(model.canRegenerateScorecard(base), true)
+  assert.equal(model.canCompleteScorecard(base), false)
+  for (const change of [
+    { status: 'COMPLETED' },
+    { recommendation: 'HIRE' },
+    { overallNotes: 'Keep notes' },
+    { overallScore: 4 },
+    { sections: [{ questions: [{ score: 4, notes: '' }] }] },
+    { sections: [{ questions: [{ score: null, notes: 'Keep notes' }] }] },
+  ])
+    assert.equal(model.canRegenerateScorecard({ ...base, ...change }), false)
+  const ready = {
+    ...base,
+    recommendation: 'HIRE',
+    sections: [{ questions: [{ score: 4 }, { score: 5 }] }],
+  }
+  assert.equal(model.canCompleteScorecard(ready), true)
+  assert.equal(model.canCompleteScorecard({ ...ready, status: 'COMPLETED' }), false)
+})

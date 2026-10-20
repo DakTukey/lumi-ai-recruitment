@@ -415,6 +415,7 @@ class AccountSchemaMigrationTest {
                         "--spring.datasource.password=" + password, "--spring.jpa.show-sql=false",
                         "--logging.level.org.hibernate.SQL=OFF")) {
             var transactions = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+            String fixtureSkill="Migration Fixture "+UUID.randomUUID();
             UUID skillId = transactions.execute(status -> {
                 var users = context.getBean(UserRepository.class);
                 var profile = new com.lumi.recruitment.entity.recruitment.RecruiterProfile();
@@ -422,9 +423,9 @@ class AccountSchemaMigrationTest {
                 profile.setDepartment(context.getBean(com.lumi.recruitment.repository.DepartmentRepository.class).findById(UUID.fromString(department)).orElseThrow());
                 profile = context.getBean(com.lumi.recruitment.repository.RecruiterProfileRepository.class).saveAndFlush(profile);
                 assertEquals(UUID.fromString(staff), profile.getUserId());
-                var skill = new com.lumi.recruitment.entity.catalog.Skill(); skill.setName(" Spring   Boot ");
+                var skill = new com.lumi.recruitment.entity.catalog.Skill(); skill.setName(" "+fixtureSkill.replace(" ","   ")+" ");
                 skill = context.getBean(com.lumi.recruitment.repository.SkillRepository.class).saveAndFlush(skill);
-                assertEquals("spring boot", skill.getNormalizedName());
+                assertEquals(fixtureSkill.toLowerCase(java.util.Locale.ROOT), skill.getNormalizedName());
                 var job = context.getBean(com.lumi.recruitment.repository.JobRepository.class).findById(UUID.fromString(jobId)).orElseThrow();
                 var link = new com.lumi.recruitment.entity.recruitment.JobSkill(); link.setJob(job); link.setSkill(skill);
                 context.getBean(com.lumi.recruitment.repository.JobSkillRepository.class).saveAndFlush(link);
@@ -439,7 +440,7 @@ class AccountSchemaMigrationTest {
                 context.getBean(com.lumi.recruitment.repository.JobHistoryRepository.class).saveAndFlush(history);
                 return skill.getId();
             });
-            assertEquals("spring boot", context.getBean(com.lumi.recruitment.repository.SkillRepository.class).findById(skillId).orElseThrow().getNormalizedName());
+            assertEquals(fixtureSkill.toLowerCase(java.util.Locale.ROOT), context.getBean(com.lumi.recruitment.repository.SkillRepository.class).findById(skillId).orElseThrow().getNormalizedName());
             assertEquals(1, context.getBean(com.lumi.recruitment.repository.JobSkillRepository.class).findForJobs(java.util.List.of(UUID.fromString(jobId))).size());
             assertEquals(1, context.getBean(com.lumi.recruitment.repository.JobRequirementRepository.class).findByJobIdOrderBySortOrderAscIdAsc(UUID.fromString(jobId)).size());
             assertEquals(1, context.getBean(com.lumi.recruitment.repository.JobHistoryRepository.class).findByJobIdOrderByCreatedAtDescIdAsc(UUID.fromString(jobId), org.springframework.data.domain.PageRequest.of(0,10)).getTotalElements());

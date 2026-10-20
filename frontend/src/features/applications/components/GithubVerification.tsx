@@ -13,9 +13,13 @@ import {
 } from 'lucide-react'
 import {
   getGithubVerification,
+  getGithubSource,
   triggerGithubVerification,
 } from '../../../services/github-verification.service'
-import type { GithubVerification as GithubVerificationData } from '../../../services/github-verification.service'
+import type {
+  GithubVerification as GithubVerificationData,
+  GithubSource,
+} from '../../../services/github-verification.service'
 import { submittedDate } from '../../../services/application.service'
 import './github-verification.css'
 
@@ -50,6 +54,8 @@ export function GithubVerification({
   const [data, setData] = useState<GithubVerificationData | null | undefined>(undefined)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [source, setSource] = useState<GithubSource | null>(null)
+  const [retry, setRetry] = useState(0)
   const mounted = useRef(true)
 
   useEffect(() => {
@@ -61,9 +67,13 @@ export function GithubVerification({
 
   useEffect(() => {
     let active = true
-    getGithubVerification(applicationId)
-      .then((res) => {
-        if (active) setData(res)
+    Promise.all([getGithubVerification(applicationId), getGithubSource(applicationId)])
+      .then(([res, source]) => {
+        if (active) {
+          setData(res)
+          setSource(source)
+          setError('')
+        }
       })
       .catch((err) => {
         if (active) setError(err instanceof Error ? err.message : 'Không tải được dữ liệu GitHub.')
@@ -71,7 +81,7 @@ export function GithubVerification({
     return () => {
       active = false
     }
-  }, [applicationId])
+  }, [applicationId, retry])
 
   async function handleVerify(force: boolean) {
     if (loading) return
@@ -94,6 +104,19 @@ export function GithubVerification({
   }
 
   if (data === undefined) {
+    if (error)
+      return (
+        <div className="hr-form-error" role="alert">
+          <p>{error}</p>
+          <button
+            type="button"
+            className="hr-button secondary"
+            onClick={() => setRetry((n) => n + 1)}
+          >
+            Thử tải lại GitHub
+          </button>
+        </div>
+      )
     return <p role="status">Đang tải thông tin đối chiếu GitHub…</p>
   }
 
@@ -106,11 +129,20 @@ export function GithubVerification({
           Hệ thống sẽ rà soát các kho lưu trữ công khai, đo lường tín hiệu chất lượng code và đối
           chiếu với các kỹ năng khai báo trong CV.
         </p>
-        {githubUrl && (
+        {source && <p role="status">{source.message}</p>}
+        <button
+          type="button"
+          className="hr-button secondary"
+          disabled={loading}
+          onClick={() => setRetry((n) => n + 1)}
+        >
+          Cập nhật nguồn CV
+        </button>
+        {(source?.url || githubUrl) && source?.state === 'READY' && (
           <p className="submitted-caption">
             URL ứng viên cung cấp:{' '}
-            <a href={githubUrl} target="_blank" rel="noreferrer" className="github-profile-link">
-              {githubUrl} <ExternalLink size={14} />
+            <a href={source.url!} target="_blank" rel="noreferrer" className="github-profile-link">
+              {source.url} <ExternalLink size={14} />
             </a>
           </p>
         )}
@@ -123,7 +155,7 @@ export function GithubVerification({
           type="button"
           className="hr-button"
           onClick={() => void handleVerify(false)}
-          disabled={loading}
+          disabled={loading || source?.state !== 'READY'}
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
           {loading ? 'Đang phân tích GitHub…' : 'Đối chiếu GitHub ngay'}
@@ -139,6 +171,11 @@ export function GithubVerification({
 
   return (
     <div className="github-verification-tab">
+      <p className="submitted-caption">
+        Đây là gợi ý từ dữ liệu công khai, chưa xác minh danh tính hoặc quyền sở hữu mã nguồn. Hãy
+        đối chiếu thêm khi phỏng vấn; tín hiệu ít commit hoặc tên repo không chứng minh dùng AI hay
+        gian lận.
+      </p>
       {error && (
         <div className="hr-form-error" role="alert">
           <p>{error}</p>
@@ -253,7 +290,7 @@ export function GithubVerification({
         <div className="skills-column">
           <h4>
             <CheckCircle2 size={18} color="#10b981" />
-            Kỹ năng có bằng chứng thực tế ({data.verifiedSkills?.length || 0})
+            Kỹ năng có tín hiệu công khai theo AI ({data.verifiedSkills?.length || 0})
           </h4>
           {data.verifiedSkills?.length ? (
             data.verifiedSkills.map((item, idx) => (
@@ -367,4 +404,3 @@ export function GithubVerification({
     </div>
   )
 }
-

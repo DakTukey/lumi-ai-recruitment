@@ -18,6 +18,7 @@ export type ReviewField = {
   label: string
   kind?: 'long' | 'month' | 'boolean' | 'list' | 'number'
   max?: number
+  hint?: string
 }
 export const contactFields: ReviewField[] = [
   { key: 'title', label: 'Tên CV', max: 100 },
@@ -27,10 +28,14 @@ export const contactFields: ReviewField[] = [
   { key: 'location', label: 'Nơi ở' },
   { key: 'desiredPosition', label: 'Vị trí mong muốn' },
   { key: 'summary', label: 'Giới thiệu', kind: 'long' },
-  ...['github', 'linkedin', 'portfolio'].map((key) => ({
-    key: `${key}Url`,
-    label: key,
+  ...[
+    { key: 'githubUrl', label: 'GitHub' },
+    { key: 'linkedinUrl', label: 'LinkedIn' },
+    { key: 'portfolioUrl', label: 'Portfolio / Website' },
+  ].map((field) => ({
+    ...field,
     max: 2048,
+    hint: 'Không bắt buộc. Có thể để trống; nếu chỉ nhập tên miền hợp lệ, hệ thống thêm https:// khi lưu.',
   })),
   { key: 'skills', label: 'Kỹ năng (mỗi dòng một kỹ năng)', kind: 'list' },
 ]

@@ -138,8 +138,9 @@ def _normalize(data: dict) -> GithubVerificationResult:
     unverified = [UnverifiedSkill(**item) for item in (data.get('unverified_skills') or [])[:20]]
     matched = [MatchedProject(**item) for item in (data.get('matched_projects') or [])[:10]]
 
-    score = int(data.get('code_quality_score', 5))
-    score = max(1, min(10, score))
+    score = data.get('code_quality_score')
+    if type(score) is not int or not 1 <= score <= 10:
+        raise ValueError('Invalid code quality score')
 
     summary_text = str(data.get('technical_summary', ''))[:1000].strip()
     if not summary_text:

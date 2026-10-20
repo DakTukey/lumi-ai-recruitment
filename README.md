@@ -1,162 +1,125 @@
 # Lumi AI Recruitment System
 
-Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Qwen cục bộ và các nhà cung cấp AI theo tính năng), tích hợp toàn diện từ tải và kiểm tra CV PDF, bóc tách thông tin, xác thực chứng chỉ số, đối chiếu năng lực ứng viên đến quản lý tuyển dụng và gợi ý câu hỏi phỏng vấn chuyên sâu cho HR.
+Ứng dụng tuyển dụng cho doanh nghiệp: ứng viên gửi CV PDF, hệ thống hỗ trợ đọc hồ sơ và đối chiếu với JD; HR xem bằng chứng, hỏi bổ sung và quản lý quy trình tuyển dụng. AI cung cấp thông tin hỗ trợ; quyết định tuyển dụng do người tuyển dụng thực hiện.
 
-> 📖 **Chi tiết kiến trúc, luồng hoạt động 7 tính năng AI và bộ câu hỏi vấn đáp: Xem tại [README_AI.md](README_AI.md)**
+## Chức năng hiện tại
 
----
+**Ứng viên:** đăng ký/đăng nhập, hồ sơ cá nhân, tìm công việc công khai, tải nhiều CV PDF, xem PDF gốc, sửa/xác nhận thông tin AI đọc, đối chiếu CV–JD trước khi nộp, nộp PDF, theo dõi đơn và trả lời câu hỏi bổ sung tùy chọn.
 
-## 🌟 Tính năng nổi bật
+**HR:** tạo/sửa/đăng/đóng tin tuyển dụng, nhập/soạn JD với AI, xem đúng CV/JD tại thời điểm nộp, đánh giá CV–JD theo tiêu chí và trích dẫn, đọc phần trả lời bổ sung, đối chiếu dữ liệu GitHub công khai, tạo phiếu phỏng vấn, chấm/lưu phiếu, ghi chú và chuyển vòng. Trợ lý email tạo bản nháp nội dung để HR duyệt.
 
-### 1. Dành cho Ứng viên (Candidate)
-- **CV của tôi:** Tải nhiều PDF, xem nguyên bản, đổi tên và đặt mặc định.
-- **Đọc và xác nhận PDF:** Qwen đọc CV có chữ hoặc scan; ứng viên đối chiếu và sửa dữ liệu trước khi sử dụng.
-- **Lịch sử được giữ:** CV tạo trước đây chỉ xem; đơn đã nộp giữ nguyên bản CV tại thời điểm gửi.
-- **AI Đối chiếu Độ phù hợp với Job (`JobMatchPanel`):**
-  - Chấm điểm phù hợp (0–100) theo thời gian thực trước khi nộp đơn.
-  - Trực quan hóa bằng **Biểu đồ Radar đa chiều (Spider Chart)** và Biểu đồ Thanh ngang.
-  - Trích dẫn nguyên văn bằng chứng từ CV (Anti-hallucination Grounding).
+CV Builder đã ngừng trong luồng mới; CV lịch sử vẫn xem được. Không tự gửi email, không đặt lịch phỏng vấn, không phỏng vấn giọng nói/camera hoặc xác minh chứng chỉ qua đơn vị cấp. Việc làm đã lưu hiện chỉ giữ trong phiên giao diện và sẽ mất khi tải lại trang.
 
-### 2. Dành cho Nhà tuyển dụng / HR (Recruiter)
-- **Quản lý Vòng đời Tin tuyển dụng:** Tạo bản nháp, đăng tin, quản lý vị trí, phòng ban, phân bổ chỉ tiêu tuyển dụng (`headcount`) và hạn nộp hồ sơ.
-- **Đánh giá Hồ sơ Chuyên sâu với AI (`AiAssessmentTab`):**
-  - Chấm điểm tự động dựa trên trọng số các tiêu chí trong JD (Kỹ năng bắt buộc x2, ưu tiên x1).
-  - Trích xuất **Kỹ năng đáp ứng** và **Kỹ năng còn thiếu**.
-  - Phân tích **Khoảng cách kỹ năng & Lộ trình bù đắp (Gaps & Roadmap)**.
-  - **Tự động soạn câu hỏi phỏng vấn riêng:** AI tạo sẵn câu hỏi phỏng vấn nhắm trúng vào các lỗ hổng kỹ năng của ứng viên kèm lý do hỏi.
-- **Widget Top Ứng viên Tiềm năng (Ranking Widget):** Tự động xếp hạng và vinh danh Top ứng viên xuất sắc nhất cho từng vị trí tuyển dụng.
-- **AI Tóm tắt Tin tuyển dụng (`JobAiSummary`):** Tóm tắt nội dung JD thành 4 khối trọng tâm: Công việc chính, Yêu cầu bắt buộc, Yêu cầu ưu tiên, Lưu ý quan trọng.
-- **Quản lý Quy trình Tuyển dụng (Workflow & Notes):** Chuyển vòng ứng tuyển (`Mới nộp` → `Xem xét` → `Phỏng vấn` → `Đề nghị` → `Tuyển dụng / Loại`) và lưu ghi chú nội bộ.
+## Kiến trúc và yêu cầu
 
----
-
-## 🏗️ Kiến trúc Hệ thống
-
-Hệ thống được xây dựng theo kiến trúc Microservices hiện đại:
-
-```
-┌─────────────────────────────────┐
-│     Frontend (React / Vite)     │  Port 5173
-│  TypeScript, React Router, CSS  │
-└────────────────┬────────────────┘
-                 │ HTTP / REST API (Session Cookie + CSRF)
-                 ▼
-┌─────────────────────────────────┐
-│   Backend (Spring Boot 3 / J21) │  Port 8080
-│ Spring Security, JPA, Flyway DB │
-└────────┬───────────────┬────────┘
-         │               │ HTTP REST
-         │ JDBC          ▼
-         │       ┌─────────────────────────────────┐
-         │       │    AI Service (Python FastAPI)  │  Port 8000
-         │       │  Uvicorn, Pydantic, Gemini API  │
-         ▼       └────────────────┬────────────────┘
-┌─────────────────┐               │
-│ PostgreSQL 16   │               ▼
-│ Relational DB   │     ┌───────────────────┐
-└─────────────────┘     │ Google Gemini API │ (gemini-3.8-flash)
-                        └───────────────────┘
+```text
+React 19 / Vite 8 (5173)
+        │ REST, session cookie + CSRF
+Spring Boot 4.1.1 / Java 21 (8080)
+        ├── PostgreSQL / Flyway (5432)
+        └── FastAPI / Python (8000)
+                    ├── Groq API
+                    └── Gemini API
 ```
 
----
+- Java 21; Node.js >=22.13.0; Python >=3.11.
+- PostgreSQL: môi trường demo kiểm tra với PostgreSQL 18. Không cần PostgREST.
+- Mặc định dùng API cloud. Ollama/Qwen là tùy chọn cấu hình riêng, không bắt buộc khởi động hoặc tải model để dùng bản demo này.
+- AI cần mạng và quota nhà cung cấp. Kết quả đã lưu có thể đọc lại khi AI không khả dụng. PDF có chữ được trích văn bản trước; PDF scan cần khả năng đọc ảnh của provider (cloud hiện dùng Gemini).
 
-## 🚀 Hướng dẫn Cài đặt & Khởi chạy
+## Khởi chạy
 
-### Yêu cầu tiên quyết
-- **Java:** JDK 21 trở lên
-- **Node.js:** v20 trở lên & npm
-- **Python:** 3.10 trở lên
-- **PostgreSQL:** Phiên bản 15 hoặc 16
+Tạo database `lumi_recruitment`; cấu hình tại `backend/src/main/resources/application.yml`. Không xóa database hiện có để chạy lại demo. Backend tự áp dụng các migration mới khi khởi động.
 
----
-
-### 1. Cấu hình Cơ sở dữ liệu (PostgreSQL)
-Tạo database có tên `lumi_recruitment`:
 ```sql
 CREATE DATABASE lumi_recruitment;
 ```
-*(Cấu hình kết nối nằm tại `backend/src/main/resources/application.yml` - Mặc định port 5432, user `postgres`).*
 
----
+AI service:
 
-### 2. Khởi chạy AI Service (FastAPI)
 ```bash
 cd ai-service
-
-# Tạo và kích hoạt môi trường ảo
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Cài đặt thư viện phụ thuộc
 pip install -r requirements.txt
-
-# Tạo file .env từ mẫu và điền GEMINI_API_KEY
-cp .env.example .env
-# (Chỉnh sửa GEMINI_API_KEY trong file .env)
-
-# Khởi chạy server
+# Chỉ sao chép khi chưa có .env; giữ nguyên khóa/cấu hình hiện tại nếu đã có.
+cp -n .env.example .env
+# Điền GROQ_API_KEY / GEMINI_API_KEY trong .env. Không commit khóa.
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
-Server AI sẽ lắng nghe tại: `http://127.0.0.1:8000` (Tài liệu Swagger: `http://127.0.0.1:8000/docs`).
 
-Muốn đọc PDF và đánh giá CV cho HR bằng Qwen chạy tại máy, xem [hướng dẫn Qwen cục bộ](docs/local-qwen-cv-processing.md).
+Cấu hình mẫu dùng `openai/gpt-oss-120b` cho Groq và `gemini-3.1-flash-lite` cho Gemini; khả năng phục vụ còn tùy tài khoản và quota. `GITHUB_TOKEN` là tùy chọn để truy cập API GitHub với hạn mức của tài khoản. Không dán khóa vào frontend.
 
----
+Backend:
 
-### 3. Khởi chạy Backend (Spring Boot)
 ```bash
 cd backend
-
-# Chạy Flyway migrations và khởi động server
-./mvnw spring-boot:run
+./mvnw clean package -DskipTests
+java -jar target/recruitment-backend-0.0.1-SNAPSHOT.jar
 ```
-Backend sẽ lắng nghe tại: `http://127.0.0.1:8080`.
 
----
+Khi demo cần giữ phiên đăng nhập lâu hơn, chạy backend với profile `demo`:
 
-### 4. Khởi chạy Frontend (React / Vite)
+```bash
+java -jar target/recruitment-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=demo
+```
+
+Profile này cho phép phiên không hoạt động tối đa 8 giờ; cấu hình mặc định vẫn là 30 phút. Khởi động lại backend sẽ làm mất phiên đang lưu trong bộ nhớ, nên cần đăng nhập lại sau khi khởi động.
+
+`-DskipTests` ở lệnh chạy nhanh chỉ bỏ qua kiểm thử, không phải bằng chứng kiểm thử đã đạt. Dùng lệnh kiểm thử bên dưới khi nghiệm thu.
+
+Frontend:
+
 ```bash
 cd frontend
-
-# Cài đặt packages
-npm install
-
-# Khởi chạy chế độ phát triển
-npm run dev
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 ```
-Ứng dụng giao diện sẽ sẵn sàng tại: `http://localhost:5173`.
 
----
+Mở `http://127.0.0.1:5173`. Không dùng địa chỉ 5174 và ID `11111111-...` từ môi trường giả lập giao diện trước đây để trình diễn dữ liệu thật.
 
-## 🧪 Kiểm thử Hệ thống
+## Kiểm thử
 
-* **Frontend Unit Tests (70/70 test suites passing):**
-  ```bash
-  cd frontend
-  npm test
-  ```
-* **Frontend Lint & Build:**
-  ```bash
-  npm run lint
-  npm run build
-  ```
-* **Backend Build & Verification:**
-  ```bash
-  cd backend
-  ./mvnw clean test
-  ```
+```bash
+cd frontend
+npm run build
+npm test
+npm run lint
+```
 
----
+```bash
+cd ai-service
+.venv/bin/python -m unittest discover -s tests
+```
 
-## 👥 Tài khoản Thử nghiệm có sẵn
+Backend có kiểm thử tích hợp tạo/xóa database riêng. Các bài này sẽ bị bỏ qua nếu thiếu biến môi trường; không tính bài bị bỏ qua là đạt. Chỉ dùng PostgreSQL kiểm thử mà tài khoản có quyền tạo database:
 
-| Vai trò | Email | Mật khẩu | Chức năng chính |
-|---|---|---|---|
-| **Ứng viên (Candidate)** | `candidate.test@example.com` | `Password123!` | Tải CV PDF, xác nhận thông tin, đối chiếu công việc, nộp hồ sơ |
-| **Nhà tuyển dụng (HR)** | `hr@gmail.com` | `Password123!` | Xem hồ sơ, AI phân tích, xem Top ứng viên, chuyển vòng |
+```bash
+cd backend
+LUMI_TEST_POSTGRES_URL=jdbc:postgresql://localhost:5432/postgres \
+LUMI_TEST_POSTGRES_USER=postgres \
+LUMI_TEST_POSTGRES_PASSWORD='<mật khẩu PostgreSQL kiểm thử>' \
+./mvnw clean test
+```
 
----
+Kết quả mới nhất và giới hạn kiểm tra được ghi tại [báo cáo demo](docs/demo-readiness-2026-10-20.md), thay vì ghi cố định số bài test trong README.
 
-## 📄 Bản quyền & Tác giả
-Dự án được phát triển trong khuôn khổ Đề cương Thực tập Thực tế K24.
-* **Tác giả:** Phạm Văn Hoài (hoaiphamimz@gmail.com)
+## Tài khoản demo cục bộ
+
+| Vai trò | Email | Mật khẩu |
+| --- | --- | --- |
+| Ứng viên | candidate.test@example.com | Password123! |
+| HR | hr@gmail.com | Password123! |
+
+Các tài khoản này dành cho môi trường demo đã chuẩn bị; không mặc định có sẵn trong database mới và không dùng lại cho môi trường công khai.
+
+## Tài liệu
+
+- [Luồng PDF hiện tại](docs/pdf-only-candidate-cv.md)
+- [AI và cách trình bày demo](README_AI.md)
+- [Câu hỏi bổ sung](docs/application-clarifications.md)
+- [Các ý tưởng và phạm vi](docs/ai-feature-ideas.md)
+- [Báo cáo và checklist demo](docs/demo-readiness-2026-10-20.md)
+- [Qwen cục bộ — cấu hình tùy chọn](docs/local-qwen-cv-processing.md)
+
+Dự án phục vụ đề cương thực tập thực tế K24. Tác giả: Phạm Văn Hoài (hoaiphamimz@gmail.com).

@@ -29,29 +29,31 @@ Sau khi có đánh giá CV–JD, ứng viên có thể chủ động tạo tối
 
 Với liên kết GitHub do ứng viên cung cấp, hệ thống tự động đối chiếu năng lực thực tế với hồ sơ ứng tuyển:
 - **Thu thập dữ liệu an toàn & tối ưu**: Quét qua REST API công khai (không cần OAuth, không clone repo, không lưu mã nguồn về đĩa). Lấy danh sách repository không fork, ngôn ngữ lập trình, tần suất commit, file cấu hình (Test, Dockerfile/compose, CI/CD) và spot-check tối đa 200 dòng trong 1 file logic nghiệp vụ (Service / Hook).
-- **Phát hiện tín hiệu code cục bộ (0 token AI)**: Nhận diện repo tutorial/clone mẫu bằng regex, phát hiện dump code 1-commit hoặc commit thưa thớt trên repo cũ (vibe-coding flag), tính % tỷ lệ ngôn ngữ theo dung lượng code.
-- **Đối chiếu AI có căn cứ (Grounded Generation)**: Mô hình AI (`llama-3.3-70b-versatile` / `gemini-1.5-flash`) phân loại kỹ năng thành hai danh sách minh bạch:
-  - `verified_skills`: Kỹ năng có bằng chứng xác thực từ code/repo thực tế.
+- **Phát hiện tín hiệu code cục bộ (0 token AI)**: Nhận diện repo tutorial/clone mẫu bằng regex, ghi nhận tín hiệu commit ít trong dữ liệu công khai (không kết luận dùng AI/gian lận), tính % tỷ lệ ngôn ngữ theo dung lượng code.
+- **Đối chiếu AI có căn cứ (Grounded Generation)**: Mô hình AI (`openai/gpt-oss-120b` / `gemini-3.1-flash-lite`) phân loại kỹ năng thành hai danh sách minh bạch:
+  - `verified_skills`: Kỹ năng mà AI nhận xét có tín hiệu từ code/repo công khai; chưa xác minh danh tính hay quyền sở hữu mã nguồn.
   - `unverified_skills`: Kỹ năng trong CV nhưng chưa thấy trên GitHub, kèm khuyến nghị đạo đức nghề nghiệp *"Chưa có bằng chứng công khai; HR nên hỏi thêm trong phỏng vấn"*, tuyệt đối không kết luận ứng viên nói dối.
 - **Khớp nối dự án & Gợi ý phỏng vấn**: So khớp dự án trong CV với repository tương ứng; AI đề xuất câu hỏi phỏng vấn đào sâu vào các mảng kỹ năng chưa có bằng chứng công khai.
 - **Kiến trúc & Giao diện**:
   - AI Service: Router `/api/github-verify`, module `github_fetcher.py` và `github_verifier.py`.
-  - Backend: Bảng cache `recruitment.application_github_verifications` (Flyway `V25`), lưu trữ JSONB, cache 24h hỗ trợ re-verify.
+  - Backend: Bảng cache `recruitment.application_github_verifications` (Flyway `V25`), lưu trữ JSONB, cache 24h hỗ trợ re-verify. Nguồn URL lấy từ bản CV/PDF đã nộp, không lấy từ bản sửa sau đó.
   - Frontend: Tab *"Đối chiếu GitHub"* chuyên biệt cho HR tại màn hình chi tiết đơn ứng tuyển (`/recruiter/applications/:id`).
 
 ### 4. Phiếu phỏng vấn thông minh cho HR (Interview Scorecard) — đã triển khai
 
 Hệ thống cung cấp phiếu phỏng vấn chuẩn hóa (Interview Scorecard) được AI cá nhân hóa theo từng ứng viên:
+
+- **Điều kiện sử dụng**: HR đã duyệt sơ tuyển và chuyển hồ sơ sang `INTERVIEW` mới được tạo, tạo lại hoặc chấm/lưu/hoàn tất phiếu. Ngoài vòng này chỉ xem phiếu đã lưu. Backend kiểm tra trạng thái trước khi gọi AI và kiểm tra lại dưới khóa dòng trước khi lưu, kể cả khi HR đổi vòng trong lúc AI đang xử lý. Điểm AI không tự chuyển vòng.
 - **Tổng hợp thông minh từ 3 nguồn**: AI tự động gom các điểm mâu thuẫn/nghi vấn từ:
   1. Kỹ năng còn thiếu trong đánh giá CV–JD (`assessment_missing_skills`).
-  2. Kỹ năng chưa có bằng chứng hoặc cờ vibe-coding từ GitHub (`github_unverified_skills`, `github_vibe_flags`).
+  2. Kỹ năng chưa có bằng chứng hoặc tín hiệu công khai cần hỏi thêm từ GitHub (`github_unverified_skills`, `github_vibe_flags`).
   3. Bằng chứng và câu trả lời tự khai báo trong phần hỏi bổ sung (`clarifications`).
 - **Cấu trúc phân tầng chuyên nghiệp**: Chia làm 2–3 section rõ ràng: *Chuyên môn kỹ thuật cốt lõi*, *Kiểm chứng dự án & mã nguồn*, *Kỹ năng mềm & Xử lý tình huống*.
 - **Tiêu chuẩn chấm điểm (Rubric) minh bạch**: Mỗi câu hỏi gồm mã câu hỏi, kỹ năng đo lường, mục tiêu kiểm chứng, gợi ý câu trả lời Đạt (Good) vs Dấu hiệu cảnh báo (Poor), thang điểm 1–5 sao và ô ghi chú phản hồi của người phỏng vấn.
 - **Quyết định tuyển dụng chuẩn hóa**: Người phỏng vấn chọn mức đề xuất (*Strong Hire, Hire, Consider, No Hire*), viết nhận xét tổng kết và chốt kết quả (Draft hoặc Completed).
 - **Kiến trúc & Giao diện**:
   - AI Service: Router `/api/interview-scorecard/generate`, module `interview_scorecard.py`.
-  - Backend: Bảng `recruitment.application_interview_scorecards` (Flyway `V26`), Controller, Service tính điểm trung bình và lưu vết người phỏng vấn.
+  - Backend: Bảng `recruitment.application_interview_scorecards` (Flyway `V26`), Controller, Service tính điểm trung bình, lưu người phỏng vấn và phiên bản để ngăn ghi đè. V27 bổ sung version; phiếu đã chấm/ghi chú không được tái tạo câu hỏi, phiếu hoàn tất được giữ nguyên.
   - Frontend: Tab *"Phiếu phỏng vấn"* tại chi tiết đơn ứng tuyển của HR, giao diện tương tác đánh giá sao, hiển thị rubric và chốt biên bản phỏng vấn.
 
 ### 5. AI góp ý JD và tiêu chí tuyển dụng

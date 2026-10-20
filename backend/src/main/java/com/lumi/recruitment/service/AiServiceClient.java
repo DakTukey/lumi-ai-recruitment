@@ -119,6 +119,13 @@ public class AiServiceClient {
             return result;
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             log.warn("CV parsing error from AI service (status {})", e.getStatusCode());
+            if (e.getStatusCode().value() == 429) {
+                int delay=30;
+                try {delay=Math.max(1,Math.min(86400,Integer.parseInt(e.getResponseHeaders().getFirst("Retry-After"))));}
+                catch(Exception ignored) {}
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Dịch vụ đọc CV đang chạm giới hạn API. Hãy chờ khoảng "+delay+" giây rồi đọc lại. PDF vẫn được giữ và bạn có thể nộp hồ sơ ngay.");
+            }
             if (e.getStatusCode().value() == 422) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Không thể đọc nội dung file này. Bạn vẫn có thể nộp PDF gốc hoặc chọn PDF khác rõ hơn.");
@@ -224,7 +231,7 @@ public class AiServiceClient {
             if (result == null) throw new IllegalStateException("Empty AI response");
             return result;
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            log.warn("GitHub verification failed with status {}: {}", e.getStatusCode(), e.getMessage());
+            log.warn("GitHub verification failed with status {}", e.getStatusCode());
             if (e.getStatusCode().value() == 422) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Không thể kiểm tra GitHub: URL không hợp lệ hoặc không tìm thấy tài khoản.");
@@ -248,7 +255,7 @@ public class AiServiceClient {
             if (result == null) throw new IllegalStateException("Empty AI response");
             return result;
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            log.warn("Interview scorecard generation failed with status {}: {}", e.getStatusCode(), e.getMessage());
+            log.warn("Interview scorecard generation failed with status {}", e.getStatusCode());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Dịch vụ tạo phiếu phỏng vấn AI tạm thời không khả dụng. Hãy thử lại sau.");
         } catch (Exception e) {

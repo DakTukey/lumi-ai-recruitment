@@ -5,6 +5,19 @@
 
 import { get, post } from './api'
 
+export type GithubSource = {
+  state: 'READY' | 'MISSING' | 'PENDING' | 'FAILED' | 'INVALID'
+  url: string | null
+  message: string
+}
+export async function getGithubSource(applicationId: string): Promise<GithubSource> {
+  return (
+    await get<GithubSource>(
+      `/recruiter/applications/${encodeURIComponent(applicationId)}/github-source`,
+    )
+  ).data
+}
+
 export type VerifiedSkill = {
   skill: string
   evidence: string
@@ -65,4 +78,3 @@ export async function triggerGithubVerification(
   )
   return response.data
 }
-

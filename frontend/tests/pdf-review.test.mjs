@@ -77,4 +77,5 @@ test('moving project to work keeps source details and enforces section limit', (
 test('review issues and evidence use readable labels', () => {
   assert.equal(reviewLabel('experiences[0].company'), 'Kinh nghiệm 1 · Công ty')
   assert.equal(reviewLabel('email'), 'Email')
+  assert.equal(reviewLabel('portfolioUrl'), 'Portfolio / Website')
 })

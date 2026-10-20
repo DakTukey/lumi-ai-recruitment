@@ -22,16 +22,24 @@ export function TopCandidatesWidget({
   refreshKey?: number
   onSelect: (applicationId: string, tab?: string) => void
 }) {
-  const [candidates, setCandidates] = useState<TopCandidate[] | null>(null)
+  const [result, setResult] = useState<{ key: string; items: TopCandidate[] } | null>(null)
+  const key = `${jobId}:${refreshKey}`
+  const candidates = result?.key === key ? result.items : null
 
   useEffect(() => {
-    if (!jobId) { setCandidates(null); return }
+    if (!jobId) return
     let active = true
-    getTopCandidates(jobId, 5).then((data) => {
-      if (active) setCandidates(data)
-    })
-    return () => { active = false }
-  }, [jobId, refreshKey])
+    getTopCandidates(jobId, 5)
+      .then((data) => {
+        if (active) setResult({ key, items: data })
+      })
+      .catch(() => {
+        if (active) setResult({ key, items: [] })
+      })
+    return () => {
+      active = false
+    }
+  }, [jobId, key])
 
   // Ẩn widget nếu không có job được chọn hoặc chưa có ai được phân tích
   if (!jobId || !candidates || candidates.length === 0) return null
@@ -60,10 +68,7 @@ export function TopCandidatesWidget({
 
             {/* Info */}
             <div className="top-candidate-info">
-              <button
-                className="top-candidate-name"
-                onClick={() => onSelect(c.applicationId)}
-              >
+              <button className="top-candidate-name" onClick={() => onSelect(c.applicationId)}>
                 {c.candidateName}
               </button>
               <p className="top-candidate-summary">{c.summary}</p>
@@ -72,7 +77,9 @@ export function TopCandidatesWidget({
               {c.matchedSkills.length > 0 && (
                 <div className="top-candidate-skills">
                   {c.matchedSkills.slice(0, 4).map((s) => (
-                    <span key={s} className="skill-matched">{s}</span>
+                    <span key={s} className="skill-matched">
+                      {s}
+                    </span>
                   ))}
                   {c.matchedSkills.length > 4 && (
                     <span className="top-candidate-more">+{c.matchedSkills.length - 4}</span>
@@ -84,7 +91,8 @@ export function TopCandidatesWidget({
             {/* Status + action */}
             <div className="top-candidate-actions">
               <span className={`hr-stage hr-stage-${c.applicationStatus.toLowerCase()}`}>
-                {applicationStages[c.applicationStatus as keyof typeof applicationStages] ?? c.applicationStatus}
+                {applicationStages[c.applicationStatus as keyof typeof applicationStages] ??
+                  c.applicationStatus}
               </span>
               <button
                 className="hr-text-button"

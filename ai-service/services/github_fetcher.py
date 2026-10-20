@@ -4,6 +4,7 @@ import base64
 import logging
 import os
 import re
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -53,16 +54,16 @@ def _extract_username(github_url: str) -> str:
     """Trích username từ URL GitHub."""
     url = github_url.strip().rstrip('/')
     # Hỗ trợ: https://github.com/username, github.com/username, username
-    match = re.search(r'github\.com/([\w.-]+)', url)
-    if match:
-        username = match.group(1)
-    elif re.fullmatch(r'[\w.-]+', url):
+    if re.fullmatch(r'[A-Za-z0-9-]{1,39}', url):
         username = url
     else:
-        raise ValueError(f'Không đọc được username từ URL: {github_url}')
+        parsed = urlparse('https://' + url if url.startswith('github.com/') else url)
+        if parsed.scheme != 'https' or parsed.hostname != 'github.com' or parsed.username or parsed.password or parsed.port:
+            raise ValueError('Liên kết phải thuộc https://github.com/username')
+        username = parsed.path.strip('/').split('/')[0]
     # Bỏ path nếu có (vd: /username/repo → username)
     username = username.split('/')[0]
-    if not re.fullmatch(r'[\w.-]+', username):
+    if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?', username):
         raise ValueError(f'Username không hợp lệ: {username}')
     return username
 
@@ -205,9 +206,9 @@ async def _analyze_repo(
     if commit_count > 0 and first_commit_at and last_commit_at:
         age_days = (datetime.now(timezone.utc) - first_commit_at).days
         if commit_count < 4 and age_days > 30:
-            vibe_flags.append('Ít commit, repo cũ — có thể là dump một lần')
+            vibe_flags.append('Ít commit trong dữ liệu công khai đã đọc; cần hỏi thêm về quá trình phát triển')
         if commit_count == 1:
-            vibe_flags.append('Chỉ có 1 commit duy nhất')
+            vibe_flags.append('API trả về 1 commit trong lần kiểm tra; chưa đủ căn cứ kết luận quá trình phát triển')
 
     # Lấy code signals
     has_tests, has_docker, has_ci, readme_excerpt, core_file_path, core_file_content = \
@@ -273,6 +274,8 @@ async def fetch_github_summary(github_url: str) -> GitHubSummary:
 
         analyzed = await asyncio.gather(*[safe_analyze(r) for r in repos_data])
         repos = [r for r in analyzed if r is not None]
+        if repos_data and not repos:
+            raise PermissionError('Chưa đọc được repository; không thể coi lỗi tải là thiếu bằng chứng.')
 
         total_stars = sum(r.stars for r in repos)
 

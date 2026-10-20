@@ -30,6 +30,7 @@ test('job and application deep links restore ID and tab without sample mode', ()
     'http://localhost',
   )
   assert.equal(parseRecruiterRoute(application.pathname, application.search).tab, 'notes')
+  for (const tab of ['github', 'scorecard', 'clarifications']) assert.equal(parseRecruiterRoute('/recruiter/applications/app-1', '?tab=' + tab).tab, tab)
   assert.equal(parseRecruiterRoute('/recruiter/applications/app-1', '?tab=invalid').tab, 'cv')
   assert.equal(
     parseRecruiterRoute('/recruiter/applications/app-1', '?tab=workflow&data=sample').tab,

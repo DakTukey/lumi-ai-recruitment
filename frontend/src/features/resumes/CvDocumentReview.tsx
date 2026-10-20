@@ -112,6 +112,7 @@ function ReviewEditor({ document, onSaved, onEditing, onBusy }: Props) {
     return (
       <label key={def.key} htmlFor={id}>
         <span>{def.label}</span>
+        {def.hint && <small>{def.hint}</small>}
         {def.kind === 'boolean' ? (
           <input
             id={id}

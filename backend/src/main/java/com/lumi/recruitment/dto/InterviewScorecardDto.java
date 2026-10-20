@@ -16,7 +16,8 @@ public record InterviewScorecardDto(
         String overallNotes,
         List<SectionDto> sections,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        long version
 ) {
     public record SectionDto(
             String title,
@@ -35,6 +36,7 @@ public record InterviewScorecardDto(
     ) {}
 
     public record SaveRequest(
+            Long version,
             String status,
             String recommendation,
             String overallNotes,

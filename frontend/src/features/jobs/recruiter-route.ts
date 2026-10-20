@@ -4,6 +4,8 @@ export const applicationTabs = [
   'cv',
   'jd',
   'clarifications',
+  'github',
+  'scorecard',
   'workflow',
   'notes',
   'ai',

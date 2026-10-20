@@ -29,7 +29,7 @@ public class GithubVerificationService {
     private final JdbcTemplate jdbc;
     private final AiServiceClient ai;
     private final UserRepository users;
-    private final CvDocumentService documents;
+    private final SubmittedCvSource sources;
     private final ObjectMapper mapper;
 
     private void requireStaff(Authentication auth) {
@@ -52,6 +52,21 @@ public class GithubVerificationService {
         return latest(applicationId);
     }
 
+    public record GithubSource(String state,String url,String message) {}
+    public GithubSource source(Authentication auth,UUID applicationId) {
+        requireStaff(auth);requireApplication(applicationId);
+        var source=sources.load(applicationId);
+        if(!"READY".equals(source.state())) return new GithubSource(source.state(),null,
+            "FAILED".equals(source.state())?"Chưa đọc được CV. Hãy phân tích lại tại mục Đánh giá AI.":"CV đang chờ đọc. Bạn có thể xem tiến độ và quay lại sau.");
+        String url=source.resume().path("githubUrl").asText(source.resume().path("github_url").asText("")).trim();
+        if(url.isBlank()) return new GithubSource("MISSING",null,"Bản CV đã nộp chưa có liên kết GitHub. Không có GitHub không đồng nghĩa ứng viên thiếu năng lực.");
+        try {
+            var uri=java.net.URI.create(url);
+            if(!"https".equalsIgnoreCase(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost()) || uri.getUserInfo()!=null || uri.getPort()!=-1 || uri.getPath()==null || !uri.getPath().matches("/[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:/.*)?")) throw new IllegalArgumentException();
+        } catch(IllegalArgumentException invalid) {return new GithubSource("INVALID",null,"Liên kết GitHub trong bản CV đã nộp chưa đúng định dạng https://github.com/username.");}
+        return new GithubSource("READY",url,"Chỉ đọc dữ liệu GitHub công khai; kết quả không xác minh danh tính hoặc quyền sở hữu mã nguồn.");
+    }
+
     @Transactional
     public GithubVerificationDto verify(Authentication auth, UUID applicationId, boolean force) {
         requireStaff(auth);
@@ -65,30 +80,10 @@ public class GithubVerificationService {
             }
         }
 
-        var snapshot = jdbc.query(
-                "select a.job_snapshot::text, s.content::text, a.candidate_id::text, a.job_id::text, a.resume_id::text, a.submission_format, a.source_document_id::text from recruitment.applications a join recruitment.application_resume_snapshots s on s.application_id=a.id where a.id=?",
-                (rs, n) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7)},
-                applicationId
-        ).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chưa có CV đã nộp."));
-
-        var resume = mapper.readTree(snapshot[1]);
-        if ("ORIGINAL_PDF".equals(snapshot[5]) && !resume.path("pdfConfirmedAt").isMissingNode()) {
-            resume = resume.path("pdfReviewedContent");
-        } else if ("ORIGINAL_PDF".equals(snapshot[5]) && snapshot[6] != null) {
-            var parsed = documents.parseForAssessment(UUID.fromString(snapshot[2]), UUID.fromString(snapshot[6]));
-            resume = mapper.valueToTree(parsed);
-        }
-
-        String githubUrl = null;
-        if (resume.hasNonNull("githubUrl") && !resume.get("githubUrl").asText().isBlank()) {
-            githubUrl = resume.get("githubUrl").asText().trim();
-        } else if (resume.hasNonNull("github_url") && !resume.get("github_url").asText().isBlank()) {
-            githubUrl = resume.get("github_url").asText().trim();
-        }
-
-        if (githubUrl == null || githubUrl.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hồ sơ ứng viên không có liên kết GitHub.");
-        }
+        var source=source(auth,applicationId);
+        if(!"READY".equals(source.state())) throw new ResponseStatusException(HttpStatus.CONFLICT,source.message());
+        var resume=sources.ready(applicationId).resume();
+        String githubUrl=source.url();
 
         List<String> cvSkills = new ArrayList<>();
         if (resume.has("skills") && resume.get("skills").isArray()) {

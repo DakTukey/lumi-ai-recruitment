@@ -13,6 +13,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -31,7 +35,10 @@ public class InterviewScorecardService {
     private final JdbcTemplate jdbc;
     private final AiServiceClient ai;
     private final UserRepository users;
-    private final CvDocumentService documents;
+    private final SubmittedCvSource sources;
+    private final PlatformTransactionManager transactions;
+    private final Set<UUID> generating=ConcurrentHashMap.newKeySet();
+    private final Semaphore slots=new Semaphore(2);
     private final ObjectMapper mapper;
 
     private User requireStaff(Authentication auth) {
@@ -48,6 +55,14 @@ public class InterviewScorecardService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn ứng tuyển.");
     }
 
+    private void requireInterviewStage(UUID id, boolean lock) {
+        var stage=jdbc.query("select status from recruitment.applications where id=?"+(lock?" for update":""),
+            (row,n)->row.getString(1),id).stream().findFirst()
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy đơn ứng tuyển."));
+        if(!"INTERVIEW".equals(stage)) throw conflict(
+            "Chỉ được tạo hoặc cập nhật phiếu khi hồ sơ đang ở vòng Phỏng vấn. Phiếu đã lưu vẫn được xem lại. Hãy cập nhật trạng thái hồ sơ.");
+    }
+
     @Transactional(readOnly = true)
     public InterviewScorecardDto get(Authentication auth, UUID applicationId) {
         requireStaff(auth);
@@ -55,33 +70,16 @@ public class InterviewScorecardService {
         return findByApplicationId(applicationId);
     }
 
-    @Transactional
     public InterviewScorecardDto generate(Authentication auth, UUID applicationId, boolean force) {
-        var user = requireStaff(auth);
-        requireApplication(applicationId);
-
-        if (!force) {
-            var existing = findByApplicationId(applicationId);
-            if (existing != null) {
-                return existing;
-            }
-        }
-
-        var snapshot = jdbc.query(
-                "select a.job_snapshot::text, s.content::text, a.candidate_id::text, a.job_id::text, a.resume_id::text, a.submission_format, a.source_document_id::text from recruitment.applications a join recruitment.application_resume_snapshots s on s.application_id=a.id where a.id=?",
-                (rs, n) -> new String[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7)},
-                applicationId
-        ).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chưa có CV đã nộp."));
-
-        var job = mapper.readTree(snapshot[0]);
-        var resume = mapper.readTree(snapshot[1]);
-        if ("ORIGINAL_PDF".equals(snapshot[5]) && !resume.path("pdfConfirmedAt").isMissingNode()) {
-            resume = resume.path("pdfReviewedContent");
-        } else if ("ORIGINAL_PDF".equals(snapshot[5]) && snapshot[6] != null) {
-            var parsed = documents.parseForAssessment(UUID.fromString(snapshot[2]), UUID.fromString(snapshot[6]));
-            resume = mapper.valueToTree(parsed);
-        }
-
+        var user=requireStaff(auth);requireInterviewStage(applicationId,false);
+        var existing=findByApplicationId(applicationId);
+        if(existing!=null && !force) return existing;
+        if(existing!=null && !regenerable(existing)) throw conflict("Phiếu đã có điểm, ghi chú hoặc đã hoàn tất. Bộ câu hỏi được giữ để bảo toàn biên bản.");
+        if(!generating.add(applicationId)) throw conflict("Phiếu đang được tạo. Hãy chờ kết quả.");
+        if(!slots.tryAcquire()) {generating.remove(applicationId);throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"AI đang bận. Hãy thử lại sau.");}
+        try {
+        var source=sources.ready(applicationId);
+        var job=source.job();var resume=source.resume();
         // Lấy missing_skills từ AI assessment gần nhất
         List<String> assessmentMissingSkills = jdbc.query(
                 "SELECT missing_skills FROM recruitment.ai_assessments WHERE application_id = ? ORDER BY created_at DESC LIMIT 1",
@@ -133,15 +131,21 @@ public class InterviewScorecardService {
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("job_title", job.path("title").asText(""));
-        payload.put("job_requirements", job.path("requirements").asText(""));
-        payload.put("candidate_name", resume.path("fullName").asText("Ứng viên"));
-        payload.put("cv_summary", resume.path("summary").asText(""));
-        payload.put("cv_skills", cvSkills);
-        payload.put("cv_projects", cvProjects);
-        payload.put("assessment_missing_skills", assessmentMissingSkills);
-        payload.put("github_unverified_skills", githubUnverified);
-        payload.put("github_vibe_flags", githubVibeFlags);
+        payload.put("job_requirements", clipped(job.path("requirements").asText(""),10000));
+        payload.put("candidate_name", "Ứng viên");
+        payload.put("cv_summary", clipped(resume.path("summary").asText(""),5000));
+        payload.put("cv_skills", cvSkills.stream().limit(50).toList());
+        payload.put("cv_projects", cvProjects.stream().limit(10).toList());
+        payload.put("assessment_missing_skills", assessmentMissingSkills.stream().limit(20).toList());
+        payload.put("github_unverified_skills", githubUnverified.stream().limit(20).toList());
+        payload.put("github_vibe_flags", githubVibeFlags.stream().limit(10).toList());
 
+        var clarificationAnswers=jdbc.query("""
+            select requirement,question,evidence,response_status,answer from recruitment.application_clarification_questions
+            where application_id=? order by position limit 3
+            """,(r,n)->Map.of("requirement",r.getString(1),"question",r.getString(2),"evidence",clipped(r.getString(3),2000),
+                "response_status",r.getString(4),"answer",r.getString(5)),applicationId);
+        payload.put("clarifications",clarificationAnswers);
         var wire = ai.generateInterviewScorecard(payload);
 
         List<InterviewScorecardDto.SectionDto> sections = new ArrayList<>();
@@ -160,99 +164,80 @@ public class InterviewScorecardService {
             }
         }
 
-        try {
+        validateQuestions(sections);
+        return new TransactionTemplate(transactions).execute(tx->{
+            // The HR stage may change while the provider is generating questions.
+            // Hold the same application row lock as a stage update before persisting.
+            requireInterviewStage(applicationId,true);
+            var current=findByApplicationId(applicationId);
+            if(existing==null?current!=null:current==null || current.version()!=existing.version())
+                throw conflict("Phiếu đã thay đổi trong khi AI xử lý. Hãy tải bản mới nhất.");
+            if(current!=null && !regenerable(current)) throw conflict("Phiếu đã có nội dung phỏng vấn; không thể tạo lại.");
             jdbc.update("""
-                INSERT INTO recruitment.application_interview_scorecards (
-                    application_id, interviewer_id, interviewer_name, status,
-                    sections, created_at, updated_at
-                ) VALUES (
-                    ?, ?, ?, 'DRAFT', ?::jsonb, ?, ?
-                )
-                ON CONFLICT (application_id) DO UPDATE SET
-                    sections = EXCLUDED.sections,
-                    updated_at = EXCLUDED.updated_at
-                """,
-                    applicationId,
-                    user.getId(),
-                    user.getFullName(),
-                    mapper.writeValueAsString(sections),
-                    Timestamp.from(Instant.now()),
-                    Timestamp.from(Instant.now())
-            );
-        } catch (Exception e) {
-            log.error("Failed to save generated interview scorecard for application {}", applicationId, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể lưu phiếu phỏng vấn.");
-        }
-
-        return findByApplicationId(applicationId);
+                insert into recruitment.application_interview_scorecards(application_id,interviewer_id,interviewer_name,status,sections,version)
+                values(?,?,?,'DRAFT',?::jsonb,0)
+                on conflict(application_id) do update set interviewer_id=excluded.interviewer_id,interviewer_name=excluded.interviewer_name,
+                status='DRAFT',sections=excluded.sections,overall_score=null,recommendation=null,overall_notes=null,
+                version=application_interview_scorecards.version+1,updated_at=now()
+                """,applicationId,user.getId(),user.getFullName(),mapper.writeValueAsString(sections));
+            return findByApplicationId(applicationId);
+        });
+        } finally {slots.release();generating.remove(applicationId);}
     }
 
     @Transactional
     public InterviewScorecardDto save(Authentication auth, UUID applicationId, InterviewScorecardDto.SaveRequest request) {
-        var user = requireStaff(auth);
-        requireApplication(applicationId);
-
-        if (request == null || request.sections() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dữ liệu phiếu phỏng vấn không hợp lệ.");
-        }
-
-        // Tính điểm trung bình từ các câu hỏi đã được chấm (1 - 5)
-        int totalRated = 0;
-        int totalScore = 0;
-        for (var sec : request.sections()) {
-            if (sec.questions() != null) {
-                for (var q : sec.questions()) {
-                    if (q.score() != null && q.score() >= 1 && q.score() <= 5) {
-                        totalRated++;
-                        totalScore += q.score();
-                    }
-                }
+        var user=requireStaff(auth);requireInterviewStage(applicationId,true);
+        var current=findByApplicationId(applicationId);
+        if(current==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Hãy tạo phiếu phỏng vấn trước khi lưu.");
+        if(request==null || request.version()==null || request.version()!=current.version()) throw conflict("Phiếu đã thay đổi. Hãy tải bản mới nhất trước khi sửa.");
+        if("COMPLETED".equals(current.status())) throw conflict("Phiếu đã hoàn tất và được giữ nguyên biên bản.");
+        if(!Set.of("DRAFT","COMPLETED").contains(request.status()==null?"":request.status())) throw bad("Trạng thái phiếu không hợp lệ.");
+        if(request.recommendation()!=null && !Set.of("STRONG_HIRE","HIRE","CONSIDER","NO_HIRE").contains(request.recommendation())) throw bad("Đề xuất tuyển dụng không hợp lệ.");
+        if(request.sections()==null || request.sections().size()!=current.sections().size()) throw bad("Bộ câu hỏi đã thay đổi; hãy tải lại.");
+        var merged=new ArrayList<InterviewScorecardDto.SectionDto>();int sum=0,rated=0,total=0;
+        for(int i=0;i<current.sections().size();i++) {
+            var saved=current.sections().get(i);var input=request.sections().get(i);
+            if(input==null || input.questions()==null || !saved.title().equals(input.title()) || input.questions().size()!=saved.questions().size()) throw bad("Nhóm câu hỏi không hợp lệ.");
+            var questions=new ArrayList<InterviewScorecardDto.QuestionDto>();
+            for(int j=0;j<saved.questions().size();j++) {
+                var q=saved.questions().get(j);var answer=input.questions().get(j);total++;
+                if(answer==null || !q.id().equals(answer.id()) || !q.question().equals(answer.question()) || !q.targetSkill().equals(answer.targetSkill()) || !q.context().equals(answer.context()) || !q.rubricGood().equals(answer.rubricGood()) || !q.rubricPoor().equals(answer.rubricPoor())) throw bad("Chỉ được sửa điểm và ghi chú, không thay đổi câu hỏi AI đã lưu.");
+                if(answer.score()!=null) {if(answer.score()<1 || answer.score()>5) throw bad("Điểm mỗi câu phải từ 1 đến 5.");rated++;sum+=answer.score();}
+                questions.add(new InterviewScorecardDto.QuestionDto(q.id(),q.question(),q.targetSkill(),q.context(),q.rubricGood(),q.rubricPoor(),answer.score(),notes(answer.notes(),2000)));
             }
+            merged.add(new InterviewScorecardDto.SectionDto(saved.title(),questions));
         }
-
-        BigDecimal overallScore = null;
-        if (totalRated > 0) {
-            overallScore = BigDecimal.valueOf((double) totalScore / totalRated).setScale(1, RoundingMode.HALF_UP);
-        }
-
-        String status = "COMPLETED".equalsIgnoreCase(request.status()) ? "COMPLETED" : "DRAFT";
-
-        try {
-            jdbc.update("""
-                INSERT INTO recruitment.application_interview_scorecards (
-                    application_id, interviewer_id, interviewer_name, status,
-                    overall_score, recommendation, overall_notes, sections, created_at, updated_at
-                ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?
-                )
-                ON CONFLICT (application_id) DO UPDATE SET
-                    interviewer_id = EXCLUDED.interviewer_id,
-                    interviewer_name = EXCLUDED.interviewer_name,
-                    status = EXCLUDED.status,
-                    overall_score = EXCLUDED.overall_score,
-                    recommendation = EXCLUDED.recommendation,
-                    overall_notes = EXCLUDED.overall_notes,
-                    sections = EXCLUDED.sections,
-                    updated_at = EXCLUDED.updated_at
-                """,
-                    applicationId,
-                    user.getId(),
-                    user.getFullName(),
-                    status,
-                    overallScore,
-                    request.recommendation(),
-                    request.overallNotes(),
-                    mapper.writeValueAsString(request.sections()),
-                    Timestamp.from(Instant.now()),
-                    Timestamp.from(Instant.now())
-            );
-        } catch (Exception e) {
-            log.error("Failed to update interview scorecard for application {}", applicationId, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể cập nhật phiếu phỏng vấn.");
-        }
-
+        if("COMPLETED".equals(request.status()) && (rated!=total || total==0 || request.recommendation()==null)) throw bad("Hãy chấm đủ các câu hỏi và chọn đề xuất trước khi hoàn tất.");
+        BigDecimal average=rated==0?null:BigDecimal.valueOf(sum).divide(BigDecimal.valueOf(rated),1,RoundingMode.HALF_UP);
+        jdbc.update("""
+            update recruitment.application_interview_scorecards set interviewer_id=?,interviewer_name=?,status=?,overall_score=?,recommendation=?,
+            overall_notes=?,sections=?::jsonb,version=version+1,updated_at=now() where application_id=? and version=?
+            """,user.getId(),user.getFullName(),request.status(),average,request.recommendation(),notes(request.overallNotes(),4000),mapper.writeValueAsString(merged),applicationId,current.version());
         return findByApplicationId(applicationId);
     }
+    private static ResponseStatusException conflict(String message) {return new ResponseStatusException(HttpStatus.CONFLICT,message);}
+    private static ResponseStatusException bad(String message) {return new ResponseStatusException(HttpStatus.BAD_REQUEST,message);}
+    private static String clipped(String text,int max) {return text==null?"":text.substring(0,Math.min(text.length(),max));}
+    private static String notes(String text,int max) {if(text!=null && text.length()>max) throw bad("Ghi chú vượt giới hạn "+max+" ký tự.");return text==null?"":text.strip();}
+    private static boolean regenerable(InterviewScorecardDto card) {
+        return !"COMPLETED".equals(card.status()) && card.overallScore()==null && card.recommendation()==null && (card.overallNotes()==null || card.overallNotes().isBlank())
+            && card.sections().stream().flatMap(s->s.questions().stream()).noneMatch(q->q.score()!=null || q.notes()!=null && !q.notes().isBlank());
+    }
+    private static void validateQuestions(List<InterviewScorecardDto.SectionDto> sections) {
+        Set<String> ids=new HashSet<>();int count=0;
+        if(sections.size()<2 || sections.size()>3) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"AI chưa trả về đủ nhóm câu hỏi hợp lệ.");
+        for(var section:sections) {
+            if(!text(section.title(),200) || section.questions()==null || section.questions().size()<2 || section.questions().size()>3) throw invalidQuestions();
+            for(var q:section.questions()) {
+                count++;
+                if(!text(q.id(),50) || !ids.add(q.id()) || !text(q.question(),500) || !text(q.targetSkill(),200) || !text(q.context(),500) || !text(q.rubricGood(),500) || !text(q.rubricPoor(),500)) throw invalidQuestions();
+            }
+        }
+        if(count<6 || count>8) throw invalidQuestions();
+    }
+    private static boolean text(String text,int max) {return text!=null && !text.isBlank() && text.length()<=max;}
+    private static ResponseStatusException invalidQuestions() {return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"AI chưa trả về đủ câu hỏi hợp lệ. Chưa lưu phiếu; hãy thử lại sau.");}
 
     private InterviewScorecardDto findByApplicationId(UUID applicationId) {
         return jdbc.query(
@@ -275,7 +260,8 @@ public class InterviewScorecardService {
                     rs.getString("overall_notes"),
                     sectionsArr != null ? List.of(sectionsArr) : List.of(),
                     rs.getTimestamp("created_at").toInstant(),
-                    rs.getTimestamp("updated_at").toInstant()
+                    rs.getTimestamp("updated_at").toInstant(),
+                    rs.getLong("version")
             );
         } catch (Exception e) {
             log.error("Error reading interview scorecard row", e);

@@ -107,10 +107,10 @@ public class CvDocumentService {
         var object=(tools.jackson.databind.node.ObjectNode)data;
         var machine=mapper.valueToTree(original.parsed());
         for(String field:List.of("sources","warnings","extractedText","pageCount")) object.set(field,machine.path(field));
-        var checked=mapper.treeToValue(object,ParsedResumeDto.class);
+        var checked=reviewValidation.normalizeLinks(mapper.treeToValue(object,ParsedResumeDto.class));
         var errors=reviewValidation.issues(checked).stream().filter(i->"ERROR".equals(i.severity())).toList();
         if(input.confirm() && !errors.isEmpty())
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Hãy sửa thông tin trước khi xác nhận: "+errors.getFirst().path()+" — "+errors.getFirst().message());
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Hãy sửa thông tin trước khi xác nhận: "+CvReviewValidation.label(errors.getFirst().path())+" — "+errors.getFirst().message());
         if(jdbc.update("update candidate.resume_documents set reviewed_content=?::jsonb,review_version=review_version+1,confirmed_at=? where id=? and candidate_id=? and review_version=? and status='PARSED'",
             mapper.writeValueAsString(checked),input.confirm()?java.sql.Timestamp.from(Instant.now()):null,id,owner.getId(),input.version())!=1)
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Thông tin PDF vừa thay đổi. Hãy tải lại bản mới.");
@@ -148,7 +148,7 @@ public class CvDocumentService {
         } catch(RuntimeException e) {
             // An unavailable AI service says nothing about whether the PDF can be read.
             // Keep file failures bounded without exhausting retries during an outage.
-            int refund=e instanceof ResponseStatusException failure && failure.getStatusCode().is5xxServerError()?1:0;
+            int refund=e instanceof ResponseStatusException failure && (failure.getStatusCode().is5xxServerError() || failure.getStatusCode().value()==429)?1:0;
             if(claimed) jdbc.update("update candidate.resume_documents set status='FAILED',attempts=greatest(attempts-?,0),parse_token=null,parse_started_at=null where id=? and parse_token=?",refund,id,token);
             throw e;
         } finally {slots.release();}

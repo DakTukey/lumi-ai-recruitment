@@ -28,8 +28,8 @@ class ExtractUsernameTest(unittest.TestCase):
         self.assertEqual(_extract_username('https://github.com/johndoe/my-repo'), 'johndoe')
 
     def test_rejects_invalid_url(self):
-        with self.assertRaises(ValueError):
-            _extract_username('not a valid url !')
+        for url in ['not a valid url !','https://evil.test/github.com/johndoe','https://github.com.evil.test/johndoe','https://user@github.com/johndoe','http://github.com/johndoe']:
+            with self.subTest(url=url), self.assertRaises(ValueError): _extract_username(url)
 
 
 class TopLanguagesTest(unittest.TestCase):
@@ -68,15 +68,10 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(result.verified_skills[0].skill, 'Python')
         self.assertEqual(result.code_quality_score, 7)
 
-    def test_clamps_score(self):
-        data = self._good_data()
-        data['code_quality_score'] = 99
-        result = _normalize(data)
-        self.assertEqual(result.code_quality_score, 10)
-
-        data['code_quality_score'] = -5
-        result = _normalize(data)
-        self.assertEqual(result.code_quality_score, 1)
+    def test_rejects_missing_or_invalid_score_instead_of_fabricating_one(self):
+        for score in [None,99,-5,True,'7']:
+            data=self._good_data();data['code_quality_score']=score
+            with self.subTest(score=score), self.assertRaises(ValueError): _normalize(data)
 
     def test_rejects_empty_summary(self):
         data = self._good_data()

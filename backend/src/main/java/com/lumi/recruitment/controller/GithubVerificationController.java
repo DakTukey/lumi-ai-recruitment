@@ -16,6 +16,12 @@ import java.util.UUID;
 public class GithubVerificationController {
     private final GithubVerificationService service;
 
+    @GetMapping("/{id}/github-source")
+    public ApiResponse<GithubVerificationService.GithubSource> source(Authentication auth,@PathVariable UUID id,jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store");
+        return ApiResponse.ok("Nguồn GitHub từ CV đã nộp.",service.source(auth,id));
+    }
+
     @GetMapping("/{id}/github-verification")
     public ApiResponse<GithubVerificationDto> get(Authentication auth, @PathVariable UUID id) {
         var result = service.get(auth, id);

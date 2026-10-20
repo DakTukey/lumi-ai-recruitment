@@ -19,7 +19,8 @@ public class InterviewScorecardController {
     private final InterviewScorecardService service;
 
     @GetMapping("/{id}/scorecard")
-    public ApiResponse<InterviewScorecardDto> get(Authentication auth, @PathVariable UUID id) {
+    public ApiResponse<InterviewScorecardDto> get(Authentication auth, @PathVariable UUID id,jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store");
         var result = service.get(auth, id);
         if (result == null) {
             return ApiResponse.ok("Chưa có phiếu phỏng vấn.", null);

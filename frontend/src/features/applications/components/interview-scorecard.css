@@ -3,10 +3,50 @@
  * ============================================================ */
 
 .scorecard-tab {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
   margin-top: 16px;
+}
+.scorecard-tab > fieldset {
+  display: grid;
+  gap: 20px;
+}
+.scorecard-stage-note {
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--hr-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--hr-input, #f9fafb);
+  color: var(--hr-body, #374151);
+}
+.scorecard-stage-note strong {
+  color: var(--hr-text, #111827);
+}
+.scorecard-stage-note p {
+  margin: 8px 0 12px;
+  line-height: 1.7;
+}
+.scorecard-stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.scorecard-notice {
+  background: var(--hr-positive-bg, #ecfdf5);
+  color: var(--hr-accent, #065f46);
+  padding: 10px 14px;
+  border: 1px solid var(--hr-positive-border, #a7f3d0);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+.scorecard-decision-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--hr-accent, #355a36);
 }
 
 .scorecard-hero {
@@ -16,13 +56,14 @@
   justify-content: space-between;
   gap: 20px;
   padding: 22px 24px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .scorecard-hero-left {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -58,13 +99,13 @@
 }
 
 .scorecard-status-badge.draft {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--hr-warning-bg, #fef3c7);
+  color: var(--hr-amber, #92400e);
 }
 
 .scorecard-status-badge.completed {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--hr-positive-bg, #d1fae5);
+  color: var(--hr-accent, #065f46);
 }
 
 .scorecard-hero-right {
@@ -84,7 +125,7 @@
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
-  color: #f59e0b;
+  color: var(--hr-amber, #f59e0b);
   display: flex;
   align-items: baseline;
   gap: 2px;
@@ -103,8 +144,8 @@
   flex-direction: column;
   gap: 16px;
   padding: 22px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -112,25 +153,28 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #355a36;
+  color: var(--hr-accent, #355a36);
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 1px solid var(--hr-border, #e5e7eb);
   padding-bottom: 10px;
 }
 
 .scorecard-question-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--hr-input, #f9fafb);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 10px;
 }
 
 .scorecard-question-header {
+  flex-wrap: wrap;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -140,7 +184,7 @@
 .scorecard-q-text {
   font-size: 0.98rem;
   font-weight: 600;
-  color: var(--text-heading, #111827);
+  color: var(--hr-text, #111827);
   line-height: 1.5;
   margin: 0;
 }
@@ -149,20 +193,21 @@
   display: inline-block;
   padding: 3px 8px;
   border-radius: 6px;
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--hr-violet-bg, #e0e7ff);
+  color: var(--hr-violet, #3730a3);
   font-size: 0.75rem;
   font-weight: 600;
-  white-space: nowrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .scorecard-context-box {
   font-size: 0.84rem;
-  color: #4b5563;
-  background: #ffffff;
+  color: var(--hr-muted, #4b5563);
+  background: var(--hr-input, #ffffff);
   padding: 8px 12px;
   border-radius: 6px;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid var(--hr-blue, #3b82f6);
   line-height: 1.5;
 }
 
@@ -186,15 +231,15 @@
 }
 
 .rubric-card.good {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  background: var(--hr-positive-bg, #ecfdf5);
+  color: var(--hr-accent, #065f46);
+  border: 1px solid var(--hr-positive-border, #a7f3d0);
 }
 
 .rubric-card.poor {
-  background: #fff1f2;
-  color: #9f1239;
-  border: 1px solid #fecdd3;
+  background: var(--hr-danger-bg, #fff1f2);
+  color: var(--hr-red, #9f1239);
+  border: 1px solid var(--hr-danger-border, #fecdd3);
 }
 
 .rubric-title {
@@ -216,7 +261,7 @@
 .scorecard-rating-label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--hr-body, #374151);
 }
 
 .rating-stars-group {
@@ -229,12 +274,14 @@
   border: none;
   cursor: pointer;
   padding: 4px;
-  color: #d1d5db;
-  transition: transform 0.1s, color 0.1s;
+  color: var(--hr-muted, #d1d5db);
+  transition:
+    transform 0.1s,
+    color 0.1s;
 }
 
 .star-rate-btn.active {
-  color: #f59e0b;
+  color: var(--hr-amber, #f59e0b);
 }
 
 .star-rate-btn:hover {
@@ -244,18 +291,18 @@
 .scorecard-notes-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--hr-control-border, #d1d5db);
   border-radius: 6px;
   font-size: 0.85rem;
-  background: #ffffff;
+  background: var(--hr-input, #ffffff);
   color: inherit;
   font-family: inherit;
   box-sizing: border-box;
 }
 
 .scorecard-notes-input:focus {
-  outline: none;
-  border-color: #355a36;
+  outline: 2px solid var(--hr-accent, #355a36);
+  border-color: var(--hr-accent, #355a36);
   box-shadow: 0 0 0 2px rgba(53, 90, 54, 0.2);
 }
 
@@ -264,8 +311,8 @@
   flex-direction: column;
   gap: 16px;
   padding: 22px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -282,8 +329,8 @@
   gap: 8px;
   padding: 12px;
   border-radius: 8px;
-  border: 2px solid #e5e7eb;
-  background: #ffffff;
+  border: 2px solid var(--hr-border, #e5e7eb);
+  background: var(--hr-input, #ffffff);
   cursor: pointer;
   font-weight: 600;
   font-size: 0.88rem;
@@ -291,31 +338,31 @@
 }
 
 .recommendation-btn:hover {
-  border-color: #9ca3af;
+  border-color: var(--hr-control-border, #9ca3af);
 }
 
 .recommendation-btn.selected.STRONG_HIRE {
-  background: #ecfdf5;
-  border-color: #10b981;
-  color: #065f46;
+  background: var(--hr-positive-bg, #ecfdf5);
+  border-color: var(--hr-positive-border, #10b981);
+  color: var(--hr-accent, #065f46);
 }
 
 .recommendation-btn.selected.HIRE {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1e40af;
+  background: var(--hr-info-bg, #eff6ff);
+  border-color: var(--hr-info-border, #3b82f6);
+  color: var(--hr-blue, #1e40af);
 }
 
 .recommendation-btn.selected.CONSIDER {
-  background: #fffbeb;
-  border-color: #f59e0b;
-  color: #b45309;
+  background: var(--hr-warning-bg, #fffbeb);
+  border-color: var(--hr-amber, #f59e0b);
+  color: var(--hr-amber, #b45309);
 }
 
 .recommendation-btn.selected.NO_HIRE {
-  background: #fef2f2;
-  border-color: #ef4444;
-  color: #991b1b;
+  background: var(--hr-danger-bg, #fef2f2);
+  border-color: var(--hr-danger-border, #ef4444);
+  color: var(--hr-red, #991b1b);
 }
 
 .scorecard-action-bar {
@@ -325,4 +372,3 @@
   gap: 12px;
   padding: 16px 0;
 }
-

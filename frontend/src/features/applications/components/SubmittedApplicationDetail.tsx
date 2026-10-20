@@ -1,7 +1,7 @@
 import { PdfDocumentViewer } from '../../resumes/PdfDocumentViewer'
 import { cvDocumentUrl, submittedPdfUrl } from '../../../services/resume.service'
 import { ApplicationAiStatus } from './ApplicationAiStatus'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { SubmittedCvViewer } from '../../resumes/SubmittedCvViewer'
 import {
   applicationStages,
@@ -101,14 +101,14 @@ export function SubmittedApplicationDetail({
     }
   }, [id, staff])
 
-  const handleClarificationsChange = (data: ApplicationClarificationsData) => {
+  const handleClarificationsChange = useCallback((data: ApplicationClarificationsData) => {
     if (data.state === 'READY' && data.questions.length > 0) {
       const answered = data.questions.filter((q) => q.responseStatus === 'ANSWERED').length
       setClarificationsSummary({ answered, total: data.questions.length })
     } else {
       setClarificationsSummary(null)
     }
-  }
+  }, [])
   if (!current) return <p role="status">Đang tải hồ sơ đã nộp…</p>
   if (!current.data)
     return (
@@ -160,7 +160,7 @@ export function SubmittedApplicationDetail({
                 ['workflow', 'Chuyển vòng'],
                 ['notes', `Ghi chú (${app.review?.notes.length ?? 0})`],
                 ['ai', 'Đánh giá AI'],
-                ...(app.resumeSnapshot?.githubUrl ? [['github', 'Đối chiếu GitHub']] : []),
+                ['github', 'Đối chiếu GitHub'],
                 ['scorecard', 'Phiếu phỏng vấn'],
                 ['email', 'Soạn email'],
               ]
@@ -323,7 +323,16 @@ export function SubmittedApplicationDetail({
         />
       )}
       {staff && tab === 'scorecard' && (
-        <InterviewScorecard key={app.id} applicationId={app.id} />
+        <InterviewScorecard
+          key={app.id}
+          applicationId={app.id}
+          applicationStage={app.status}
+          onOpenWorkflow={() => setTab('workflow')}
+          onRefreshApplication={() => {
+            setRetry((n) => n + 1)
+            onChanged?.()
+          }}
+        />
       )}
       {staff && tab === 'email' && (
         <ApplicationEmailComposer

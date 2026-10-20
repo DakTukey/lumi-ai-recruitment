@@ -59,11 +59,20 @@ class LoginFlowTest {
     private volatile java.util.concurrent.CountDownLatch matchRelease;
     private final java.util.concurrent.atomic.AtomicInteger parseCalls = new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean parseFails;
+    private volatile int parseResponseStatus=200;
+    private volatile boolean parseBareLinks;
     private final java.util.concurrent.atomic.AtomicInteger clarificationCalls = new java.util.concurrent.atomic.AtomicInteger();
     private volatile String clarificationMode = "ok";
     private volatile JsonNode lastClarificationRequest;
     private volatile java.util.concurrent.CountDownLatch clarificationEntered;
     private volatile java.util.concurrent.CountDownLatch clarificationRelease;
+    private final java.util.concurrent.atomic.AtomicInteger scorecardCalls = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile String scorecardMode="ok";
+    private volatile JsonNode lastScorecardRequest;
+    private volatile java.util.concurrent.CountDownLatch scorecardEntered;
+    private volatile java.util.concurrent.CountDownLatch scorecardRelease;
+    private final java.util.concurrent.atomic.AtomicInteger githubCalls = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile JsonNode lastGithubRequest;
     private CookieManager cookies;
     private HttpClient client;
 
@@ -81,13 +90,15 @@ class LoginFlowTest {
         aiStub.createContext("/api/cv-parser", exchange -> {
             parseCalls.incrementAndGet(); exchange.getRequestBody().readAllBytes();
             var result = resumePayload("Original PDF", "DRAFT");
+            if(parseBareLinks) result.put("portfolioUrl","portfolio.example.test/work");
             result.put("summary", "Original PDF evidence");
             result.put("sources",java.util.List.of(Map.of("path","summary","quote","Original PDF evidence","page",1,"verified",true)));
             result.put("extraSections", java.util.List.of(Map.of("title", "Research", "content", "Paper in 2023")));
             result.put("warnings", java.util.List.of("Check source")); result.put("pageCount", 1); result.put("extractedText", "Page 1: Original PDF evidence");
             byte[] output = mapper.writeValueAsString(result).getBytes(java.nio.charset.StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(parseFails ? 503 : 200, output.length);
+            if(parseResponseStatus==429) exchange.getResponseHeaders().set("Retry-After","45");
+            exchange.sendResponseHeaders(parseFails ? 503 : parseResponseStatus, output.length);
             exchange.getResponseBody().write(output); exchange.close();
         });
         aiStub.createContext("/api/assess", exchange -> {
@@ -207,6 +218,29 @@ class LoginFlowTest {
             exchange.getResponseHeaders().set("Content-Type","application/json");
             exchange.sendResponseHeaders(clarificationMode.equals("unavailable")?503:200,bytes.length);
             exchange.getResponseBody().write(bytes);exchange.close();
+        });
+        aiStub.createContext("/api/interview-scorecard/generate",exchange->{
+            scorecardCalls.incrementAndGet();lastScorecardRequest=mapper.readTree(exchange.getRequestBody().readAllBytes());
+            if("hold".equals(scorecardMode)) {
+                scorecardEntered.countDown();try {scorecardRelease.await(3,java.util.concurrent.TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+            }
+            var sections=new java.util.ArrayList<Map<String,Object>>();
+            for(int i=0;i<2;i++) {
+                var questions=new java.util.ArrayList<Map<String,Object>>();
+                for(int j=0;j<3;j++)questions.add(Map.of("id","invalid".equals(scorecardMode)?"duplicate":"q"+i+j,"question","Hãy chia sẻ ví dụ Java?","target_skill","Java","context","Cần làm rõ dữ liệu ứng viên tự cung cấp","rubric_good","Có ví dụ cụ thể","rubric_poor","Chưa mô tả rõ"));
+                sections.add(Map.of("title","Nhóm "+i,"questions",questions));
+            }
+            byte[] bytes=mapper.writeValueAsBytes(Map.of("sections",sections,"model_name","test-model"));
+            exchange.getResponseHeaders().set("Content-Type","application/json");
+            exchange.sendResponseHeaders("unavailable".equals(scorecardMode)?503:200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();
+        });
+        aiStub.createContext("/api/github-verify",exchange->{
+            githubCalls.incrementAndGet();lastGithubRequest=mapper.readTree(exchange.getRequestBody().readAllBytes());
+            var result=new java.util.HashMap<String,Object>();result.put("github_username","test");
+            result.put("verified_skills",java.util.List.of(Map.of("skill","Java","evidence","Dữ liệu công khai thử nghiệm")));result.put("unverified_skills",java.util.List.of(Map.of("skill","Docker","note","Chưa có bằng chứng công khai")));
+            result.put("matched_projects",java.util.List.of());result.put("code_quality_score",7);result.put("technical_summary","Kết quả thử nghiệm GitHub.");result.put("interview_suggestions",java.util.List.of("Hãy mô tả cách dùng Docker?"));result.put("vibe_coding_flags",java.util.List.of());
+            result.put("has_tests",true);result.put("has_docker",false);result.put("has_ci",false);result.put("top_languages",Map.of("Java",100));result.put("model_name","test-model");
+            byte[] bytes=mapper.writeValueAsBytes(result);exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();
         });
         aiStub.start();
         context = new SpringApplicationBuilder(RecruitmentBackendApplication.class, AccessProbe.class)
@@ -1745,6 +1779,43 @@ class LoginFlowTest {
         newBrowserSession();loginStaff("recruiter");assertEquals(403,sendResume("PUT",path,input,true).statusCode());
     }
 
+    @Test void pdfReviewNormalizesOptionalLinksWithoutChangingExtractionAndRejectsInvalidValues() throws Exception {
+        registerResumeOwner();
+        String id=mapper.readTree(uploadPdf(("%PDF-1.7\nlinks "+UUID.randomUUID()).getBytes(),true).body()).at("/data/id").asText();
+        try {
+            parseBareLinks=true;
+            assertEquals(200,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
+        } finally {parseBareLinks=false;}
+        var original=mapper.readTree(get("/api/candidate/cv-documents/"+id).body()).at("/data/parsed");
+        var content=(tools.jackson.databind.node.ObjectNode)original.deepCopy();
+        content.put("portfolioUrl","portfolio.example.test/work");content.put("githubUrl"," github.com/synthetic ");
+        content.put("linkedinUrl","");
+        content.set("projects",mapper.valueToTree(java.util.List.of(Map.of("name","Demo","url","demo.example.test/app"))));
+        content.set("certifications",mapper.valueToTree(java.util.List.of(Map.of("name","Demo certificate","credentialUrl","cert.example.test/123"))));
+        var document=mapper.readTree(get("/api/candidate/cv-documents/"+id).body()).path("data");
+        assertTrue(document.path("issues").isEmpty(),document.path("issues").toString());
+        var input=new java.util.HashMap<String,Object>();input.put("content",content);input.put("version",0);input.put("confirm",true);
+        String path="/api/candidate/cv-documents/"+id+"/review";
+        var response=sendResume("PUT",path,input,true);assertEquals(200,response.statusCode(),response.body());
+        var saved=mapper.readTree(response.body()).path("data");
+        assertEquals("https://portfolio.example.test/work",saved.at("/reviewed/portfolioUrl").asText());
+        assertEquals("https://github.com/synthetic",saved.at("/reviewed/githubUrl").asText());
+        assertEquals("",saved.at("/reviewed/linkedinUrl").asText());
+        assertEquals("https://demo.example.test/app",saved.at("/reviewed/projects/0/url").asText());
+        assertEquals("https://cert.example.test/123",saved.at("/reviewed/certifications/0/credentialUrl").asText());
+        assertEquals(document.path("parsed"),saved.path("parsed"));
+        assertEquals(original.path("sources"),saved.at("/reviewed/sources"));
+        input.put("version",1);
+        for(String bad:java.util.List.of("javascript:alert(1)","mailto:person@example.test","not a link","https://bad host/path")) {
+            content.put("portfolioUrl",bad);
+            var rejected=sendResume("PUT",path,input,true);assertEquals(422,rejected.statusCode(),rejected.body());
+            assertTrue(rejected.body().contains("Portfolio / Website"));assertTrue(rejected.body().contains("https://"));
+        }
+        content.put("portfolioUrl","");
+        response=sendResume("PUT",path,input,true);assertEquals(200,response.statusCode(),response.body());
+        assertEquals("",mapper.readTree(response.body()).at("/data/reviewed/portfolioUrl").asText());
+    }
+
     @Test void pdfParserFailureKeepsOriginalAndDoesNotAttachUnparsedDocument() throws Exception {
         registerResumeOwner();var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
         String id=mapper.readTree(upload.body()).at("/data/id").asText();
@@ -1753,6 +1824,24 @@ class LoginFlowTest {
         assertEquals(200,get("/api/candidate/cv-documents/"+id+"/file").statusCode());
         var cv=resumePayload("Unparsed","DRAFT");cv.put("sourceDocumentId",id);
         assertEquals(404,post("/api/candidate/resumes",cv,csrf()).statusCode());
+        assertEquals(200,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
+    }
+
+    @Test void pdfParserRateLimitExplainsWaitAndDoesNotExhaustDocumentRetries() throws Exception {
+        registerResumeOwner();var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
+        String id=mapper.readTree(upload.body()).at("/data/id").asText();
+        try {
+            parseResponseStatus=429;
+            for(int attempt=0;attempt<4;attempt++) {
+                var response=post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf());
+                assertEquals(429,response.statusCode(),response.body());
+                assertTrue(response.body().contains("45"));
+                assertTrue(response.body().contains("giới hạn API"));
+                var doc=mapper.readTree(get("/api/candidate/cv-documents/"+id).body()).path("data");
+                assertEquals("FAILED",doc.path("status").asText());assertEquals(0,doc.path("attempts").asInt());
+            }
+            assertEquals(200,get("/api/candidate/cv-documents/"+id+"/file").statusCode());
+        } finally {parseResponseStatus=200;}
         assertEquals(200,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
     }
 
@@ -2563,6 +2652,173 @@ class LoginFlowTest {
             assertEquals(parsed,parseCalls.get());assertEquals("Original PDF evidence",lastClarificationRequest.at("/resume/summary").asText());
             assertFalse(lastClarificationRequest.toString().contains("LATER EDIT"));
         }
+    }
+
+    private String scorecardPath(String id) {return "/api/recruiter/applications/"+id+"/scorecard";}
+    private void moveToInterview(String id) throws Exception {
+        var application=review(id).path("application");
+        if("SUBMITTED".equals(application.path("status").asText())) {
+            var response=changeStage(id,"REVIEWING",application.path("version").asLong(),"HR bắt đầu sơ tuyển");
+            assertEquals(200,response.statusCode(),response.body());application=mapper.readTree(response.body()).path("data").path("application");
+        }
+        if("REVIEWING".equals(application.path("status").asText())) {
+            var response=changeStage(id,"INTERVIEW",application.path("version").asLong(),"HR duyệt sơ tuyển và mời phỏng vấn");
+            assertEquals(200,response.statusCode(),response.body());
+        }
+        assertEquals("INTERVIEW",review(id).at("/application/status").asText());
+    }
+    private JsonNode generateScorecard(String id) throws Exception {
+        var response=post(scorecardPath(id)+"/generate",Map.of(),csrf());assertEquals(201,response.statusCode(),response.body());
+        return mapper.readTree(response.body()).path("data");
+    }
+    private Map<String,Object> scorecardInput(JsonNode card,String status) {
+        var input=new java.util.HashMap<String,Object>();input.put("version",card.path("version").asLong());input.put("sections",card.path("sections"));input.put("status",status);return input;
+    }
+    @Test void scorecardOnlyAllowsInterviewMutationsAndPreservesSavedCardsAtEveryOtherStage() throws Exception {
+        String id=assessedClarificationApplication();newBrowserSession();loginStaff("recruiter");
+        String path=scorecardPath(id);var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        var stages=java.util.List.of("SUBMITTED","REVIEWING","OFFER","HIRED","REJECTED","WITHDRAWN");
+        scorecardCalls.set(0);
+        // Test every persisted stage, including WITHDRAWN which has no candidate UI yet.
+        for(String stage:stages) {
+            jdbc.update("update recruitment.applications set status=? where id=?::uuid",stage,id);
+            for(boolean force:java.util.List.of(false,true)) {
+                var response=post(path+"/generate",Map.of("force",force),csrf());
+                assertEquals(409,response.statusCode(),stage+": "+response.body());assertTrue(response.body().contains("Phỏng vấn"));
+            }
+            assertEquals(409,sendResume("PUT",path,Map.of("version",0,"status","DRAFT","sections",java.util.List.of()),true).statusCode());
+            assertTrue(mapper.readTree(get(path).body()).path("data").isNull());
+        }
+        assertEquals(0,scorecardCalls.get());
+        jdbc.update("update recruitment.applications set status='INTERVIEW' where id=?::uuid",id);
+        var card=generateScorecard(id);var changed=card.deepCopy();
+        ((tools.jackson.databind.node.ObjectNode)changed.at("/sections/0/questions/0")).put("score",4).put("notes","Biên bản HR cần giữ nguyên");
+        var response=sendResume("PUT",path,scorecardInput(changed,"DRAFT"),true);assertEquals(200,response.statusCode(),response.body());
+        var saved=mapper.readTree(response.body()).path("data");
+        for(String stage:stages) {
+            jdbc.update("update recruitment.applications set status=? where id=?::uuid",stage,id);
+            assertEquals(saved,mapper.readTree(get(path).body()).path("data"));
+            for(boolean force:java.util.List.of(false,true)) assertEquals(409,post(path+"/generate",Map.of("force",force),csrf()).statusCode());
+            for(String status:java.util.List.of("DRAFT","COMPLETED")) assertEquals(409,sendResume("PUT",path,scorecardInput(saved,status),true).statusCode());
+            assertEquals(saved,mapper.readTree(get(path).body()).path("data"));
+        }
+        assertEquals(1,scorecardCalls.get());
+    }
+
+    @Test void scorecardCannotPersistQuestionsIfHrChangesStageWhileAiIsRunning() throws Exception {
+        for(boolean regenerate:java.util.List.of(false,true)) {
+            newBrowserSession();String id=assessedClarificationApplication();newBrowserSession();loginStaff("recruiter");moveToInterview(id);
+            JsonNode original=regenerate?generateScorecard(id):null;
+            scorecardEntered=new java.util.concurrent.CountDownLatch(1);scorecardRelease=new java.util.concurrent.CountDownLatch(1);scorecardMode="hold";
+            var token=csrf();var request=HttpRequest.newBuilder(URI.create(baseUrl+scorecardPath(id)+"/generate"))
+                .header("Content-Type","application/json").header(token.header(),token.value())
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(Map.of("force",regenerate)))).build();
+            var pending=client.sendAsync(request,HttpResponse.BodyHandlers.ofString());
+            try {
+                assertTrue(scorecardEntered.await(3,java.util.concurrent.TimeUnit.SECONDS));
+                var application=review(id).path("application");
+                var moved=changeStage(id,"REJECTED",application.path("version").asLong(),"HR kết thúc phỏng vấn");
+                assertEquals(200,moved.statusCode(),moved.body());
+                scorecardRelease.countDown();var response=pending.get(3,java.util.concurrent.TimeUnit.SECONDS);
+                assertEquals(409,response.statusCode(),response.body());assertTrue(response.body().contains("Phỏng vấn"));
+                var stored=mapper.readTree(get(scorecardPath(id)).body()).path("data");
+                if(original==null) assertTrue(stored.isNull()); else assertEquals(original,stored);
+                assertEquals("REJECTED",review(id).at("/application/status").asText());
+            } finally {scorecardRelease.countDown();scorecardMode="ok";}
+        }
+    }
+
+    @Test void scorecardUsesClarificationAnswersAndProtectsRatedCompletedAndVersionedData() throws Exception {
+        String id=assessedClarificationApplication();var clarification=generateQuestions(id);
+        String qid=clarification.at("/questions/0/id").asText();
+        assertEquals(200,sendResume("PUT",clarificationPath(id)+"/"+qid,Map.of("version",0,"action","ANSWER","answer","Tôi phụ trách transaction và kiểm thử."),true).statusCode());
+        var before=mapper.readTree(get("/api/candidate/applications/"+id).body()).path("data");
+        newBrowserSession();loginStaff("recruiter");moveToInterview(id);before=review(id).path("application");scorecardCalls.set(0);var card=generateScorecard(id);
+        assertEquals(2,card.path("sections").size());assertEquals(1,scorecardCalls.get());
+        assertEquals("Ứng viên",lastScorecardRequest.path("candidate_name").asText());
+        assertEquals("Tôi phụ trách transaction và kiểm thử.",lastScorecardRequest.at("/clarifications/0/answer").asText());
+        assertEquals(card,generateScorecard(id));assertEquals(1,scorecardCalls.get());
+        String path=scorecardPath(id);
+        assertEquals(403,sendResume("PUT",path,scorecardInput(card,"DRAFT"),false).statusCode());
+        assertEquals(400,sendResume("PUT",path,scorecardInput(card,"COMPLETED"),true).statusCode());
+        var forged=card.deepCopy();((tools.jackson.databind.node.ObjectNode)forged.at("/sections/0/questions/0")).put("question","Forged question");
+        assertEquals(400,sendResume("PUT",path,scorecardInput(forged,"DRAFT"),true).statusCode());
+        var rated=card.deepCopy();((tools.jackson.databind.node.ObjectNode)rated.at("/sections/0/questions/0")).put("score",6);
+        assertEquals(400,sendResume("PUT",path,scorecardInput(rated,"DRAFT"),true).statusCode());
+        ((tools.jackson.databind.node.ObjectNode)rated.at("/sections/0/questions/0")).put("score",4);
+        var saved=sendResume("PUT",path,scorecardInput(rated,"DRAFT"),true);assertEquals(200,saved.statusCode(),saved.body());
+        var draft=mapper.readTree(saved.body()).path("data");assertEquals(4,draft.path("overallScore").asInt());assertEquals(1,draft.path("version").asInt());
+        assertEquals(409,sendResume("PUT",path,scorecardInput(card,"DRAFT"),true).statusCode());
+        assertEquals(409,post(path+"/generate",Map.of("force",true),csrf()).statusCode());assertEquals(1,scorecardCalls.get());
+        var completed=draft.deepCopy();for(var section:completed.path("sections"))for(var q:section.path("questions"))((tools.jackson.databind.node.ObjectNode)q).put("score",5);
+        var input=scorecardInput(completed,"COMPLETED");input.put("recommendation","HIRE");input.put("overallNotes","Biên bản kiểm thử của HR.");
+        var done=sendResume("PUT",path,input,true);assertEquals(200,done.statusCode(),done.body());
+        var result=mapper.readTree(done.body()).path("data");assertEquals("COMPLETED",result.path("status").asText());assertEquals(5,result.path("overallScore").asInt());
+        assertEquals(409,post(path+"/generate",Map.of("force",true),csrf()).statusCode());
+        assertEquals(409,sendResume("PUT",path,scorecardInput(result,"DRAFT"),true).statusCode());
+        assertEquals(result,mapper.readTree(get(path).body()).path("data"));
+        assertEquals(before,review(id).path("application"));
+        newBrowserSession();registerResumeOwner();assertEquals(403,get(path).statusCode());
+        assertEquals(403,post(path+"/generate",Map.of(),csrf()).statusCode());
+        assertEquals(403,sendResume("PUT",path,input,true).statusCode());
+    }
+    @Test void scorecardGenerationCannotOverwriteHrSaveWhileAiIsRunning() throws Exception {
+        String id=assessedClarificationApplication();newBrowserSession();loginStaff("recruiter");moveToInterview(id);var card=generateScorecard(id);
+        scorecardEntered=new java.util.concurrent.CountDownLatch(1);scorecardRelease=new java.util.concurrent.CountDownLatch(1);scorecardMode="hold";
+        var token=csrf();var request=HttpRequest.newBuilder(URI.create(baseUrl+scorecardPath(id)+"/generate")).header("Content-Type","application/json").header(token.header(),token.value()).POST(HttpRequest.BodyPublishers.ofString("{\"force\":true}")).build();
+        var pending=client.sendAsync(request,HttpResponse.BodyHandlers.ofString());
+        try {
+            assertTrue(scorecardEntered.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            var changed=card.deepCopy();((tools.jackson.databind.node.ObjectNode)changed.at("/sections/0/questions/0")).put("notes","Nội dung HR cần được giữ.");
+            var saved=sendResume("PUT",scorecardPath(id),scorecardInput(changed,"DRAFT"),true);assertEquals(200,saved.statusCode(),saved.body());
+            scorecardRelease.countDown();var response=pending.get(3,java.util.concurrent.TimeUnit.SECONDS);assertEquals(409,response.statusCode(),response.body());
+            assertEquals("Nội dung HR cần được giữ.",mapper.readTree(get(scorecardPath(id)).body()).at("/data/sections/0/questions/0/notes").asText());
+        } finally {scorecardRelease.countDown();scorecardMode="ok";}
+    }
+    @Test void scorecardInvalidOrUnavailableAiDoesNotStorePartialCardsAndPristineRegenerationIsSafe() throws Exception {
+        String id=assessedClarificationApplication();newBrowserSession();loginStaff("recruiter");moveToInterview(id);String path=scorecardPath(id);
+        try {
+            for(String mode:java.util.List.of("invalid","unavailable")) {
+                scorecardMode=mode;assertEquals(503,post(path+"/generate",Map.of(),csrf()).statusCode());assertTrue(mapper.readTree(get(path).body()).path("data").isNull());
+            }
+            scorecardMode="ok";var card=generateScorecard(id);
+            var regenerated=post(path+"/generate",Map.of("force",true),csrf());assertEquals(201,regenerated.statusCode());
+            var result=mapper.readTree(regenerated.body()).path("data");assertEquals(card.path("version").asInt()+1,result.path("version").asInt());
+            assertEquals("DRAFT",result.path("status").asText());assertTrue(result.path("overallScore").isNull());
+        } finally {scorecardMode="ok";}
+    }
+    @Test void githubSourceUsesImmutablePdfExtractionForBothDirectAndConfirmedSubmissions() throws Exception {
+        for(boolean confirm:java.util.List.of(false,true)) {
+            newBrowserSession();String job=applicationJob();var upload=uploadPdf(("%PDF-1.7\nsource "+UUID.randomUUID()).getBytes(),true);
+            String doc=mapper.readTree(upload.body()).at("/data/id").asText();var input=new java.util.HashMap<String,Object>();input.put("jobId",job);input.put("sourceDocumentId",doc);input.put("submissionFormat","ORIGINAL_PDF");
+            JsonNode reviewed=null;
+            if(confirm){assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());reviewed=confirmPdf(doc);input.put("documentVersion",reviewed.path("reviewVersion").asLong());}
+            var submitted=post("/api/candidate/applications",input,csrf());assertEquals(201,submitted.statusCode());String id=mapper.readTree(submitted.body()).at("/data/id").asText();var owner=client;String path="/api/recruiter/applications/"+id+"/github-source";
+            assertEquals(403,get(path).statusCode());
+            if(!confirm){newBrowserSession();loginStaff("recruiter");assertEquals("PENDING",mapper.readTree(get(path).body()).at("/data/state").asText());client=owner;}
+            context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(id));int parsed=parseCalls.get();
+            if(reviewed==null)reviewed=confirmPdf(doc);
+            var changed=(tools.jackson.databind.node.ObjectNode)reviewed.path("reviewed").deepCopy();changed.put("githubUrl","https://github.com/later-edit");
+            assertEquals(200,sendResume("PUT","/api/candidate/cv-documents/"+doc+"/review",Map.of("version",reviewed.path("reviewVersion").asLong(),"content",changed,"confirm",true),true).statusCode());
+            newBrowserSession();loginStaff("recruiter");var response=get(path);assertEquals(200,response.statusCode());
+            assertEquals("READY",mapper.readTree(response.body()).at("/data/state").asText());assertEquals("https://github.com/test",mapper.readTree(response.body()).at("/data/url").asText());assertEquals(parsed,parseCalls.get());
+            moveToInterview(id);var card=generateScorecard(id);assertEquals(2,card.path("sections").size());assertEquals("Original PDF evidence",lastScorecardRequest.path("cv_summary").asText());assertEquals(parsed,parseCalls.get());
+        }
+    }
+
+    @Test void githubVerificationPersistsCacheAndFeedsScorecardWithoutChangingApplication() throws Exception {
+        String id=assessedClarificationApplication();newBrowserSession();loginStaff("recruiter");String path="/api/recruiter/applications/"+id+"/github-verification";
+        moveToInterview(id);
+        var original=review(id).path("application");githubCalls.set(0);
+        assertTrue(mapper.readTree(get(path).body()).path("data").isNull());
+        assertEquals(403,post(path,Map.of(),null).statusCode());assertEquals(0,githubCalls.get());
+        var verified=post(path,Map.of(),csrf());assertEquals(201,verified.statusCode(),verified.body());
+        var data=mapper.readTree(verified.body()).path("data");assertEquals("test",data.path("githubUsername").asText());assertEquals(7,data.path("codeQualityScore").asInt());
+        assertEquals("https://github.com/test",lastGithubRequest.path("github_url").asText());assertFalse(lastGithubRequest.has("email"));
+        assertEquals(data,mapper.readTree(post(path,Map.of(),csrf()).body()).path("data"));assertEquals(1,githubCalls.get());
+        generateScorecard(id);assertEquals("Docker",lastScorecardRequest.at("/github_unverified_skills/0").asText());
+        assertEquals(original,review(id).path("application"));
+        newBrowserSession();registerResumeOwner();assertEquals(403,get(path).statusCode());assertEquals(403,post(path,Map.of(),csrf()).statusCode());
     }
 
     private record Token(String header, String value) { }

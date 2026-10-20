@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import {
   generateClarifications,
@@ -31,13 +31,12 @@ export function ApplicationClarifications({
   const [revision, setRevision] = useState(0)
   const mounted = useRef(true)
   const working = useRef(false)
-  function receive(incoming: ApplicationClarificationsData) {
-    setData((current) => {
-      const merged = mergeClarifications(current, incoming)
-      onDataChange?.(merged)
-      return merged
-    })
-  }
+  const receive = useCallback((incoming: ApplicationClarificationsData) => {
+    setData((current) => mergeClarifications(current, incoming))
+  }, [])
+  useEffect(() => {
+    if (data) onDataChange?.(data)
+  }, [data, onDataChange])
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -72,7 +71,7 @@ export function ApplicationClarifications({
       active = false
       clearTimeout(timer)
     }
-  }, [applicationId, staff, revision])
+  }, [applicationId, staff, revision, receive])
   async function generate() {
     if (working.current) return
     working.current = true

@@ -24,6 +24,7 @@ export type ScorecardSection = {
 export type RecommendationType = 'STRONG_HIRE' | 'HIRE' | 'CONSIDER' | 'NO_HIRE'
 
 export type InterviewScorecard = {
+  version: number
   applicationId: string
   interviewerId: string | null
   interviewerName: string | null
@@ -37,6 +38,7 @@ export type InterviewScorecard = {
 }
 
 export type ScorecardSavePayload = {
+  version: number
   status: 'DRAFT' | 'COMPLETED'
   recommendation: RecommendationType | null
   overallNotes: string | null
@@ -81,4 +83,3 @@ export async function saveInterviewScorecard(
   )
   return response.data
 }
-

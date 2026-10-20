@@ -3,6 +3,7 @@
  * ============================================================ */
 
 .github-verification-tab {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -16,13 +17,14 @@
   justify-content: space-between;
   gap: 20px;
   padding: 20px 24px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .github-hero-left {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -50,10 +52,11 @@
 }
 
 .github-profile-link {
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--primary-color, #2563eb);
+  color: var(--hr-blue, #2563eb);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 500;
@@ -80,15 +83,15 @@
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
-  color: #10b981;
+  color: var(--hr-accent, #10b981);
 }
 
 .github-score-value.medium {
-  color: #f59e0b;
+  color: var(--hr-amber, #f59e0b);
 }
 
 .github-score-value.low {
-  color: #ef4444;
+  color: var(--hr-red, #ef4444);
 }
 
 .github-score-label {
@@ -117,27 +120,27 @@
 }
 
 .signal-chip.active {
-  background: #ecfdf5;
-  color: #065f46;
-  border-color: #a7f3d0;
+  background: var(--hr-positive-bg, #ecfdf5);
+  color: var(--hr-accent, #065f46);
+  border-color: var(--hr-positive-border, #a7f3d0);
 }
 
 .signal-chip.inactive {
-  background: #f3f4f6;
-  color: #6b7280;
-  border-color: #e5e7eb;
+  background: var(--hr-raised, #f3f4f6);
+  color: var(--hr-muted, #6b7280);
+  border-color: var(--hr-border, #e5e7eb);
 }
 
 .signal-chip.warning {
-  background: #fffbeb;
-  color: #b45309;
-  border-color: #fde68a;
+  background: var(--hr-warning-bg, #fffbeb);
+  color: var(--hr-amber, #b45309);
+  border-color: var(--hr-warning-border, #fde68a);
 }
 
 .github-languages-card {
   padding: 20px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -152,7 +155,7 @@
   height: 10px;
   border-radius: 5px;
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--hr-raised, #e5e7eb);
   margin-bottom: 12px;
 }
 
@@ -193,12 +196,13 @@
 }
 
 .skills-column {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 20px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -214,17 +218,17 @@
 .skill-evidence-card {
   padding: 12px 14px;
   border-radius: 8px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--hr-input, #f9fafb);
+  border: 1px solid var(--hr-border, #e5e7eb);
   font-size: 0.88rem;
 }
 
 .skill-evidence-card.verified {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid var(--hr-accent, #10b981);
 }
 
 .skill-evidence-card.unverified {
-  border-left: 4px solid #f59e0b;
+  border-left: 4px solid var(--hr-amber, #f59e0b);
 }
 
 .skill-card-header {
@@ -236,20 +240,20 @@
 
 .skill-card-name {
   font-weight: 600;
-  color: var(--text-heading, #111827);
+  color: var(--hr-text, #111827);
 }
 
 .skill-card-body {
   margin: 0;
-  color: var(--text-muted, #4b5563);
+  color: var(--hr-muted, #4b5563);
   line-height: 1.5;
   font-size: 0.83rem;
 }
 
 .github-projects-card {
   padding: 20px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -268,14 +272,14 @@
 .matched-projects-table th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 2px solid var(--border-color, #e5e7eb);
-  color: var(--text-muted, #6b7280);
+  border-bottom: 2px solid var(--hr-border, #e5e7eb);
+  color: var(--hr-muted, #6b7280);
   font-weight: 600;
 }
 
 .matched-projects-table td {
   padding: 12px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--hr-border, #e5e7eb);
   vertical-align: middle;
 }
 
@@ -289,20 +293,20 @@
 }
 
 .confidence-tag.cao {
-  background: #ecfdf5;
-  color: #065f46;
+  background: var(--hr-positive-bg, #ecfdf5);
+  color: var(--hr-accent, #065f46);
 }
 
 .confidence-tag.trung-bình,
 .confidence-tag.medium {
-  background: #fffbeb;
-  color: #b45309;
+  background: var(--hr-warning-bg, #fffbeb);
+  color: var(--hr-amber, #b45309);
 }
 
 .confidence-tag.thấp,
 .confidence-tag.low {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--hr-raised, #f3f4f6);
+  color: var(--hr-muted, #6b7280);
 }
 
 .github-insights-section {
@@ -310,8 +314,8 @@
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--hr-panel, #ffffff);
+  border: 1px solid var(--hr-border, #e5e7eb);
   border-radius: 12px;
 }
 
@@ -326,7 +330,7 @@
 
 .github-summary-text {
   line-height: 1.7;
-  color: var(--text-body, #374151);
+  color: var(--hr-body, #374151);
   margin: 0;
 }
 
@@ -338,15 +342,14 @@
 
 .github-interview-list li {
   margin-bottom: 8px;
-  color: var(--text-body, #374151);
+  color: var(--hr-body, #374151);
 }
 
 .github-disclaimer {
   font-size: 0.82rem;
   line-height: 1.6;
-  color: var(--text-muted, #6b7280);
+  color: var(--hr-muted, #6b7280);
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px dashed var(--border-color, #e5e7eb);
+  border-top: 1px dashed var(--hr-border, #e5e7eb);
 }
-

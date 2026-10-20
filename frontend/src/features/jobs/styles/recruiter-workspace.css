@@ -1,3 +1,9 @@
+/* The page scrollbar belongs to the root, outside the workspace container. */
+:root:has(.hr-workspace) {
+  background: #14171c;
+  color-scheme: dark;
+  scrollbar-color: #586272 #14171c;
+}
 .hr-workspace {
   --hr-bg: #14171c;
   --hr-panel: #1e2229;
@@ -16,6 +22,15 @@
   --hr-violet: #d1b9ef;
   --hr-cyan: #9fd8de;
   --hr-red: #efb1ba;
+  --hr-positive-bg: #263b30;
+  --hr-positive-border: #4e765b;
+  --hr-warning-bg: #3c3223;
+  --hr-warning-border: #756039;
+  --hr-danger-bg: #3b272e;
+  --hr-danger-border: #7e4b56;
+  --hr-info-bg: #263448;
+  --hr-info-border: #495f7d;
+  --hr-violet-bg: #352c43;
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 242px minmax(0, 1fr);
@@ -1605,6 +1620,56 @@
 .hr-workspace .submitted-caption {
   color: var(--hr-muted);
   opacity: 1;
+}
+/* Shared PDF/status widgets keep light defaults on candidate pages. */
+.hr-workspace .candidate-ai-status,
+.hr-workspace .cv-source-note,
+.hr-workspace .cv-extraction-fields section {
+  color: var(--hr-body);
+  background: var(--hr-panel);
+  border-color: var(--hr-border);
+}
+.hr-workspace .candidate-ai-status h4 {
+  color: var(--hr-violet);
+}
+.hr-workspace .cv-source-note summary,
+.hr-workspace .cv-extraction-fields h4 {
+  color: var(--hr-text);
+}
+.hr-workspace .cv-source-note p {
+  color: var(--hr-body);
+}
+.hr-workspace .cv-extracted-text {
+  color: var(--hr-body);
+  background: var(--hr-input);
+}
+.hr-workspace .cv-pdf-viewer {
+  background: var(--hr-input);
+  border-color: var(--hr-border);
+}
+.hr-workspace .cv-pdf-toolbar {
+  color: var(--hr-body);
+  background: var(--hr-raised);
+  border-color: var(--hr-border);
+}
+.hr-workspace .cv-pdf-toolbar a {
+  color: var(--hr-blue);
+}
+.hr-workspace .candidate-ai-status button,
+.hr-workspace .cv-pdf-toolbar button,
+.hr-workspace .clarifications .button.secondary {
+  color: var(--hr-body);
+  background: var(--hr-input);
+  border-color: var(--hr-control-border);
+}
+.hr-workspace .candidate-ai-status button:hover:not(:disabled),
+.hr-workspace .cv-pdf-toolbar button:hover:not(:disabled),
+.hr-workspace .clarifications .button.secondary:hover:not(:disabled) {
+  background: var(--hr-hover);
+  color: var(--hr-text);
+}
+.hr-workspace .cv-pdf-modal .modal-head {
+  background: var(--hr-panel);
 }
 /* The shared dialog paragraph color must not wash out the white CV paper. */
 .hr-workspace .submitted-cv .cv-paper-section p:not(.cv-entry-subtitle),

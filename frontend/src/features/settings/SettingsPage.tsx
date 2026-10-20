@@ -85,7 +85,8 @@ export function SettingsPage() {
                       <div>
                         <strong>Bảo mật mật khẩu & phiên làm việc</strong>
                         <p>
-                          Mật khẩu được mã hóa an toàn bằng thuật toán BCrypt. Phiên đăng nhập được quản lý bằng JWT token tự động xác thực với máy chủ.
+                          Mật khẩu được băm bằng BCrypt. Máy chủ quản lý phiên đăng nhập qua cookie
+                          HttpOnly; các thao tác lưu dữ liệu được bảo vệ bằng CSRF.
                         </p>
                       </div>
                     </>
@@ -93,9 +94,10 @@ export function SettingsPage() {
                     <>
                       <Bell size={20} />
                       <div>
-                        <strong>Kênh nhận thông báo tự động</strong>
+                        <strong>Theo dõi tiến độ trong ứng dụng</strong>
                         <p>
-                          Mọi thông báo về tiến độ xử lý hồ sơ, phản hồi từ nhà tuyển dụng và lịch phỏng vấn được gửi trực tiếp đến hộp thư: <strong>{user?.email || 'email đăng ký'}</strong>.
+                          Bạn xem trạng thái hồ sơ tại mục Đơn ứng tuyển. Hệ thống hiện hỗ trợ HR
+                          soạn nội dung email; chưa tự gửi email hoặc tạo lịch phỏng vấn.
                         </p>
                       </div>
                     </>
@@ -105,7 +107,10 @@ export function SettingsPage() {
                       <div>
                         <strong>Chính sách quyền riêng tư hồ sơ</strong>
                         <p>
-                          CV và thông tin cá nhân của bạn chỉ được chia sẻ với nhà tuyển dụng liên quan khi bạn chủ động nộp đơn. Lumi cam kết không chia sẻ dữ liệu cho bên thứ ba.
+                          PDF và dữ liệu hồ sơ được giới hạn truy cập theo tài khoản và vai trò. Khi
+                          dùng chức năng AI, nội dung cần xử lý có thể được gửi đến nhà cung cấp AI
+                          cloud đang cấu hình. Khi nộp đơn, HR xem được bản CV và thông tin bạn gửi
+                          kèm.
                         </p>
                       </div>
                     </>

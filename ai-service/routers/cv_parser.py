@@ -1,4 +1,5 @@
 import logging
+import math
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from models.cv_parser import ParsedCvResult
 from services.cv_parser import parse_cv_content
@@ -30,7 +31,11 @@ async def parse_cv(file: UploadFile = File(...)) -> ParsedCvResult:
         raise HTTPException(status_code=422, detail="Chưa thể đọc PDF. Kiểm tra tệp không khóa, không hỏng và tối đa 10 trang.")
     except ProviderRefused:
         raise HTTPException(status_code=422, detail="Dịch vụ AI không xử lý tài liệu này.")
-    except ProviderUnavailable:
+    except ProviderUnavailable as error:
+        if str(error) == 'http_429':
+            delay = min(86400, max(1, math.ceil(error.retry_after)))
+            raise HTTPException(status_code=429, detail='Dịch vụ đọc CV đang chạm giới hạn API. PDF vẫn được giữ.',
+                                headers={'Retry-After': str(delay)})
         raise HTTPException(status_code=503, detail="Dịch vụ đọc CV tạm thời không khả dụng.")
     except Exception as e:
         logger.error("CV parser failed (%s)", type(e).__name__)
