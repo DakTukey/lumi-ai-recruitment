@@ -1,0 +1,352 @@
+/* ============================================================
+ *  GitHub Verification Styles — Lumi Studio
+ * ============================================================ */
+
+.github-verification-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.github-hero-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.github-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.github-avatar-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background: #24292f;
+  color: #ffffff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.github-hero-meta h3 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.github-profile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-color, #2563eb);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.github-profile-link:hover {
+  text-decoration: underline;
+}
+
+.github-hero-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.github-score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.github-score-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #10b981;
+}
+
+.github-score-value.medium {
+  color: #f59e0b;
+}
+
+.github-score-value.low {
+  color: #ef4444;
+}
+
+.github-score-label {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.github-signals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.signal-chip.active {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.signal-chip.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #e5e7eb;
+}
+
+.signal-chip.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.github-languages-card {
+  padding: 20px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+}
+
+.github-languages-card h4 {
+  margin: 0 0 14px;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.language-bar-track {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #e5e7eb;
+  margin-bottom: 12px;
+}
+
+.language-bar-segment {
+  height: 100%;
+}
+
+.language-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.85rem;
+}
+
+.language-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.language-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.github-skills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .github-skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skills-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+}
+
+.skills-column h4 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skill-evidence-card {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  font-size: 0.88rem;
+}
+
+.skill-evidence-card.verified {
+  border-left: 4px solid #10b981;
+}
+
+.skill-evidence-card.unverified {
+  border-left: 4px solid #f59e0b;
+}
+
+.skill-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.skill-card-name {
+  font-weight: 600;
+  color: var(--text-heading, #111827);
+}
+
+.skill-card-body {
+  margin: 0;
+  color: var(--text-muted, #4b5563);
+  line-height: 1.5;
+  font-size: 0.83rem;
+}
+
+.github-projects-card {
+  padding: 20px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+}
+
+.github-projects-card h4 {
+  margin: 0 0 14px;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.matched-projects-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.matched-projects-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  color: var(--text-muted, #6b7280);
+  font-weight: 600;
+}
+
+.matched-projects-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  vertical-align: middle;
+}
+
+.confidence-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.confidence-tag.cao {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.confidence-tag.trung-bình,
+.confidence-tag.medium {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.confidence-tag.thấp,
+.confidence-tag.low {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.github-insights-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+}
+
+.github-insights-section h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.github-summary-text {
+  line-height: 1.7;
+  color: var(--text-body, #374151);
+  margin: 0;
+}
+
+.github-interview-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.github-interview-list li {
+  margin-bottom: 8px;
+  color: var(--text-body, #374151);
+}
+
+.github-disclaimer {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-muted, #6b7280);
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color, #e5e7eb);
+}
+

@@ -19,6 +19,19 @@ public class CandidateJobMatchController {
 
     private final CandidateJobMatchService service;
 
+    @GetMapping("/pdf")
+    public ApiResponse<CandidateJobMatchDto> getPdf(jakarta.servlet.http.HttpServletResponse response,
+            Authentication auth,@PathVariable UUID jobId,@RequestParam UUID documentId) {
+        response.setHeader("Cache-Control","no-store");
+        return ApiResponse.ok("Kết quả đối chiếu PDF đã lưu.",service.getCachedPdfMatch(auth,jobId,documentId));
+    }
+    @PostMapping("/pdf")
+    public ApiResponse<CandidateJobMatchDto> analyzePdf(jakarta.servlet.http.HttpServletResponse response,
+            Authentication auth,@PathVariable UUID jobId,@Valid @RequestBody CandidateJobMatchDto.PdfMatchRequest request) {
+        response.setHeader("Cache-Control","no-store");
+        return ApiResponse.ok("Đã đối chiếu CV PDF.",service.matchPdf(auth,jobId,request.documentId(),request.documentVersion(),request.force()));
+    }
+
     @GetMapping
     public ApiResponse<CandidateJobMatchDto> getCached(
             jakarta.servlet.http.HttpServletResponse response,

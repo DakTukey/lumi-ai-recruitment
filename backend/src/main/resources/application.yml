@@ -9,9 +9,13 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 app:
+  cv-builder:
+    enabled: false
   ai-service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
-    timeout-seconds: 60
+    timeout-seconds: ${AI_SERVICE_TIMEOUT_SECONDS:60}
+  ai-analysis:
+    max-concurrency: ${AI_ANALYSIS_MAX_CONCURRENCY:1}
   candidate-preferences:
     employment-types: ${LUMI_EMPLOYMENT_TYPES:FULL_TIME,INTERNSHIP}
     work-modes: ${LUMI_WORK_MODES:ONSITE,HYBRID,REMOTE}

@@ -11,11 +11,16 @@ const code = ts.transpileModule(
     compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
   },
 ).outputText
-const { jobMatchOverview, isCurrentJobMatch } = await import(
+const { jobMatchOverview, isCurrentJobMatch, isCurrentPdfJobMatch } = await import(
   `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
 )
-const fixture = ts.transpileModule(await readFile(new URL('./fixtures/candidate-job-match.ts', import.meta.url), 'utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
-const {sampleJobMatch,sampleMatchResumes} = await import(`data:text/javascript;base64,${Buffer.from(fixture).toString('base64')}`)
+const fixture = ts.transpileModule(
+  await readFile(new URL('./fixtures/candidate-job-match.ts', import.meta.url), 'utf8'),
+  { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } },
+).outputText
+const { sampleJobMatch, sampleMatchResumes } = await import(
+  `data:text/javascript;base64,${Buffer.from(fixture).toString('base64')}`
+)
 
 test('empty or unweighted criteria do not invent an overall fit score', () => {
   assert.equal(jobMatchOverview([]).score, null)
@@ -59,4 +64,14 @@ test('results belong to exactly the selected CV version and job', () => {
   assert.equal(isCurrentJobMatch(match, 'c', { id: 'b', version: 3 }), false)
   assert.equal(isCurrentJobMatch(match, 'a', { id: 'other', version: 3 }), false)
   assert.equal(isCurrentJobMatch(match, 'a', { id: 'b', version: 4 }), false)
+})
+
+test('PDF match belongs to the confirmed document and exact review version', () => {
+  const result = { jobId: 'job', sourceDocumentId: 'pdf-a', documentVersion: 3, resumeId: null }
+  const doc = { id: 'pdf-a', reviewVersion: 3, confirmedAt: '2026-10-19T10:00:00Z' }
+  assert.equal(isCurrentPdfJobMatch(result, 'job', doc), true)
+  assert.equal(isCurrentPdfJobMatch(result, 'other-job', doc), false)
+  assert.equal(isCurrentPdfJobMatch(result, 'job', { ...doc, id: 'pdf-b' }), false)
+  assert.equal(isCurrentPdfJobMatch(result, 'job', { ...doc, reviewVersion: 4 }), false)
+  assert.equal(isCurrentPdfJobMatch(result, 'job', { ...doc, confirmedAt: null }), false)
 })

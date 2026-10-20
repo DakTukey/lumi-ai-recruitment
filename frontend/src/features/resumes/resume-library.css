@@ -23,6 +23,11 @@
 .resume-library-heading .button {
   flex-shrink: 0;
 }
+.resume-library-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .resume-library-empty {
   text-align: center;
   padding: 30px 20px;

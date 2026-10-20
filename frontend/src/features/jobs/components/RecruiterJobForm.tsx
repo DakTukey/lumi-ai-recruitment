@@ -18,6 +18,9 @@ const firstFields = new Set([
   'title',
   'headcount',
   'location',
+  'level',
+  'mode',
+  'employmentType',
   'salaryMin',
   'salaryMax',
   'deadline',
@@ -298,15 +301,19 @@ export function RecruiterJobForm({
                       setDraft((previous) => selectJobLevel(previous, level))
                       setErrors((previous) =>
                         Object.fromEntries(
-                          Object.entries(previous).filter(([key]) => key !== 'title'),
+                          Object.entries(previous).filter(
+                            ([key]) => key !== 'title' && key !== 'level',
+                          ),
                         ),
                       )
                     }}
                   >
+                    <option value="">Chọn cấp độ</option>
                     {['Intern', 'Junior', 'Middle', 'Senior'].map((level) => (
                       <option key={level}>{level}</option>
                     ))}
                   </select>
+                  {fieldError('level')}
                 </label>
                 <label>
                   Số lượng cần tuyển <span>*</span>
@@ -388,12 +395,14 @@ export function RecruiterJobForm({
                     value={draft.employmentType}
                     onChange={(event) => change('employmentType', event.target.value)}
                   >
+                    <option value="">Chọn hình thức hợp đồng</option>
                     {Object.entries(contractLabels).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
                   </select>
+                  {fieldError('employmentType')}
                 </label>
                 <label>
                   Cách làm việc
@@ -407,16 +416,26 @@ export function RecruiterJobForm({
                         mode,
                         location: jobWorkLocation(mode),
                       }))
+                      setErrors((previous) =>
+                        Object.fromEntries(
+                          Object.entries(previous).filter(
+                            ([key]) => key !== 'mode' && key !== 'location',
+                          ),
+                        ),
+                      )
                     }}
                   >
+                    <option value="">Chọn cách làm việc</option>
                     {['Hybrid', 'Remote', 'Tại văn phòng'].map((mode) => (
                       <option key={mode}>{mode}</option>
                     ))}
                   </select>
+                  {fieldError('mode')}
                 </label>
                 <label className="hr-span-2">
                   Địa điểm làm việc
                   <input readOnly value={draft.location} />
+                  {fieldError('location')}
                   <small>
                     {draft.mode === 'Remote'
                       ? 'Vị trí làm việc từ xa, không yêu cầu đến văn phòng.'

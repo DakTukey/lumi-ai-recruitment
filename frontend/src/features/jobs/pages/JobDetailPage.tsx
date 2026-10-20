@@ -165,12 +165,12 @@ export function JobDetailPage() {
   const wrongRole = Boolean(user && user.role !== 'CANDIDATE')
   const canApply = !wrongRole
   const applying = params.get('apply') === '1' && canApply
-  const setApplying = (open: boolean, resumeId?: string) => {
+  const setApplying = (open: boolean, documentId?: string) => {
     if (busy) return
     const next = new URLSearchParams(params)
     if (open) {
       next.set('apply', '1')
-      if (resumeId) next.set('resumeId', resumeId)
+      if (documentId) next.set('documentId', documentId)
     } else next.delete('apply')
     setParams(next, { replace: true, state: location.state })
   }
@@ -317,8 +317,8 @@ export function JobDetailPage() {
               key={`${job.id}:${user?.id ?? 'guest'}:${retry}`}
               job={job}
               canApply={canApply}
-              onApply={(resumeId) => setApplying(true, resumeId)}
-              initialResumeId={params.get('resumeId') ?? undefined}
+              onApply={(documentId) => setApplying(true, documentId)}
+              initialDocumentId={params.get('documentId') ?? undefined}
               onRefreshJob={() => setRetry(retry + 1)}
               open={matchOpen}
               onToggle={() => setMatchFor(matchOpen ? '' : String(job.id))}
@@ -443,7 +443,7 @@ export function JobDetailPage() {
               <p className="jd-apply-note">
                 {wrongRole
                   ? 'Tính năng ứng tuyển dành cho tài khoản ứng viên.'
-                  : 'Sử dụng CV đã hoàn tất để ứng tuyển.'}
+                  : 'Gửi CV PDF ngay; AI phân tích sau khi nộp.'}
               </p>
             </section>
             <section className="jd-prepare">
@@ -493,7 +493,7 @@ export function JobDetailPage() {
           <ApplyWithResume
             key={`${job.id}:${user?.id}`}
             jobId={String(job.id)}
-            preferredResumeId={params.get('resumeId') ?? undefined}
+            preferredDocumentId={params.get('documentId') ?? undefined}
             onBusy={setBusy}
             onSubmitted={() => {
               void getJobById(String(job.id))

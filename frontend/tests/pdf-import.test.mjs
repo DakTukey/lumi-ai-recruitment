@@ -15,3 +15,10 @@ test('PDF import starts a new draft linked to original and retains unknown secti
  assert.deepEqual(document,before)
  assert.throws(()=>importedDraft({id:'unparsed',parsed:null}))
 })
+test('web import uses candidate corrections and does not replace original extraction', () => {
+ const document={id:'original',parsed:{fullName:'AI spelling',skills:['Java']},reviewed:{fullName:'Confirmed spelling',skills:['Java','SQL']}}
+ const draft=importedDraft(document)
+ assert.equal(draft.fullName,'Confirmed spelling')
+ assert.deepEqual(draft.skills,['Java','SQL'])
+ assert.equal(document.parsed.fullName,'AI spelling')
+})

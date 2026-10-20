@@ -12,6 +12,12 @@ import type { SubmittedApplication } from '../../../services/application.service
 import { ApplicationReviewActions } from './ApplicationReviewActions'
 import { AiAssessmentTab } from './AiAssessmentTab'
 import { ApplicationEmailComposer } from './ApplicationEmailComposer'
+import { SubmittedPdfExtraction } from './SubmittedPdfExtraction'
+import { ApplicationClarifications } from './ApplicationClarifications'
+import { GithubVerification } from './GithubVerification'
+import { InterviewScorecard } from './InterviewScorecard'
+import { getClarifications } from '../../../services/application-clarification.service'
+import type { ApplicationClarificationsData } from '../../../services/application-clarification.service'
 import './applications.css'
 import '../../resumes/cv-pdf-import.css'
 const contracts: Record<string, string> = {
@@ -48,10 +54,15 @@ export function SubmittedApplicationDetail({
   const tab = onTabChange ? initialTab : localTab
   const setTab = onTabChange ?? setLocalTab
   const [retry, setRetry] = useState(0)
+  const [analysisRevision, setAnalysisRevision] = useState(0)
   const [result, setResult] = useState<{
     key: string
     data?: SubmittedApplication
     error?: string
+  } | null>(null)
+  const [clarificationsSummary, setClarificationsSummary] = useState<{
+    answered: number
+    total: number
   } | null>(null)
   const key = `${staff}:${id}:${retry}`
   const current = result?.key === key ? result : null
@@ -69,6 +80,35 @@ export function SubmittedApplicationDetail({
       active = false
     }
   }, [staff, id, key])
+
+  useEffect(() => {
+    let active = true
+    void getClarifications(id, staff)
+      .then((data) => {
+        if (!active || !data) return
+        if (data.state === 'READY' && data.questions.length > 0) {
+          const answered = data.questions.filter((q) => q.responseStatus === 'ANSWERED').length
+          setClarificationsSummary({ answered, total: data.questions.length })
+        } else {
+          setClarificationsSummary(null)
+        }
+      })
+      .catch(() => {
+        if (active) setClarificationsSummary(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [id, staff])
+
+  const handleClarificationsChange = (data: ApplicationClarificationsData) => {
+    if (data.state === 'READY' && data.questions.length > 0) {
+      const answered = data.questions.filter((q) => q.responseStatus === 'ANSWERED').length
+      setClarificationsSummary({ answered, total: data.questions.length })
+    } else {
+      setClarificationsSummary(null)
+    }
+  }
   if (!current) return <p role="status">Đang tải hồ sơ đã nộp…</p>
   if (!current.data)
     return (
@@ -100,16 +140,28 @@ export function SubmittedApplicationDetail({
           {applicationStages[app.status]}
         </span>
       </div>
-      {!staff && <ApplicationAiStatus key={id} applicationId={id} />}
+      <ApplicationAiStatus
+        key={`${staff}:${id}:${analysisRevision}`}
+        applicationId={id}
+        staff={staff}
+      />
       <div className="hr-detail-tabs" role="group" aria-label="Nội dung hồ sơ đã nộp">
         {[
           ['cv', 'CV đã nộp'],
           ['jd', 'Công việc lúc nộp'],
+          [
+            'clarifications',
+            clarificationsSummary
+              ? `Bổ sung thông tin (${clarificationsSummary.answered}/${clarificationsSummary.total})`
+              : 'Bổ sung thông tin',
+          ],
           ...(staff
             ? [
                 ['workflow', 'Chuyển vòng'],
                 ['notes', `Ghi chú (${app.review?.notes.length ?? 0})`],
                 ['ai', 'Đánh giá AI'],
+                ...(app.resumeSnapshot?.githubUrl ? [['github', 'Đối chiếu GitHub']] : []),
+                ['scorecard', 'Phiếu phỏng vấn'],
                 ['email', 'Soạn email'],
               ]
             : []),
@@ -160,6 +212,7 @@ export function SubmittedApplicationDetail({
                 title="PDF gốc đã nộp"
                 url={staff ? submittedPdfUrl(app.id) : cvDocumentUrl(app.sourceDocumentId)}
               />
+              {staff && <SubmittedPdfExtraction applicationId={app.id} />}
             </section>
           ) : (
             <SubmittedCvViewer
@@ -174,6 +227,14 @@ export function SubmittedApplicationDetail({
             </section>
           )}
         </>
+      )}
+      {tab === 'clarifications' && (
+        <ApplicationClarifications
+          key={`${id}:${staff}`}
+          applicationId={id}
+          staff={staff}
+          onDataChange={handleClarificationsChange}
+        />
       )}
       {tab === 'jd' && (
         <article className="submitted-jd">
@@ -247,8 +308,22 @@ export function SubmittedApplicationDetail({
           key={app.id}
           applicationId={app.id}
           jobSnapshot={app.jobSnapshot}
-          onChanged={onChanged}
+          isOriginalPdf={app.submissionFormat === 'ORIGINAL_PDF'}
+          onChanged={() => {
+            setAnalysisRevision((value) => value + 1)
+            onChanged?.()
+          }}
         />
+      )}
+      {staff && tab === 'github' && (
+        <GithubVerification
+          key={app.id}
+          applicationId={app.id}
+          githubUrl={app.resumeSnapshot?.githubUrl}
+        />
+      )}
+      {staff && tab === 'scorecard' && (
+        <InterviewScorecard key={app.id} applicationId={app.id} />
       )}
       {staff && tab === 'email' && (
         <ApplicationEmailComposer

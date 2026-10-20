@@ -11,6 +11,11 @@ import java.util.UUID;
 @RequestMapping("/api/recruiter/applications")
 public class RecruiterApplicationController {
  private final ApplicationService service;
+ private final com.lumi.recruitment.service.AiAnalysisTaskService aiTasks;
+ @GetMapping("/{id}/ai-status") public ApiResponse<ApplicationAiStatusDto> aiStatus(Authentication auth,@PathVariable UUID id,jakarta.servlet.http.HttpServletResponse response) {
+  response.setHeader("Cache-Control","no-store");
+  return ApiResponse.ok("Tiến độ phân tích hồ sơ.",aiTasks.status(auth,id,true));
+ }
  @GetMapping public ApiResponse<ApplicationDto.PageDto> list(Authentication auth,
   @RequestParam(required=false) UUID jobId,@RequestParam(defaultValue="") String stage,
   @RequestParam(defaultValue="") String search,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {

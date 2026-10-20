@@ -21,7 +21,9 @@ export const jobMatchStatus = {
 export type CandidateJobMatch = {
   source: 'sample' | 'assessment'
   jobId: string
-  resumeId: string
+  resumeId: string | null
+  sourceDocumentId?: string | null
+  documentVersion?: number | null
   resumeTitle: string
   resumeVersion: number
   score?: number | null
@@ -61,5 +63,18 @@ export function isCurrentJobMatch(
     result.jobId === jobId &&
     result.resumeId === resume.id &&
     result.resumeVersion === resume.version
+  )
+}
+
+export function isCurrentPdfJobMatch(
+  result: CandidateJobMatch,
+  jobId: string,
+  document: { id: string; reviewVersion: number; confirmedAt: string | null },
+) {
+  return (
+    !!document.confirmedAt &&
+    result.jobId === jobId &&
+    result.sourceDocumentId === document.id &&
+    result.documentVersion === document.reviewVersion
   )
 }

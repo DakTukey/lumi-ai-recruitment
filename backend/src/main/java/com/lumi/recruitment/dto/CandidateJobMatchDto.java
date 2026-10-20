@@ -18,7 +18,9 @@ public record CandidateJobMatchDto(
     Instant evaluatedAt,
     long jobVersion,
     String modelName,
-    String promptVersion
+    String promptVersion,
+    String sourceDocumentId,
+    Long documentVersion
 ) {
     public record CriterionDto(
         String id,
@@ -46,5 +48,12 @@ public record CandidateJobMatchDto(
         Boolean force
     ) {
         public MatchRequest { force = Boolean.TRUE.equals(force); }
+    }
+    public record PdfMatchRequest(
+        @jakarta.validation.constraints.NotNull UUID documentId,
+        @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.PositiveOrZero Long documentVersion,
+        Boolean force
+    ) {
+        public PdfMatchRequest { force = Boolean.TRUE.equals(force); }
     }
 }

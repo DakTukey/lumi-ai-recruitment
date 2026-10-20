@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Modal } from '../../../components/ui/Modal'
 import {
   getApplications,
@@ -12,7 +12,11 @@ export function ApplicationsPage() {
   const [stage, setStage] = useState('')
   const [page, setPage] = useState(0)
   const [retry, setRetry] = useState(0)
-  const [selected, setSelected] = useState('')
+  const [params, setParams] = useSearchParams()
+  const selected = params.get('application') ?? ''
+  function setSelected(id: string) {
+    setParams(id ? { application: id } : {})
+  }
   const [result, setResult] = useState<{
     key: string
     data?: ApplicationPage
@@ -133,7 +137,11 @@ export function ApplicationsPage() {
       )}
       {selected && (
         <Modal title="Hồ sơ đã gửi" wide onClose={() => setSelected('')}>
-          <SubmittedApplicationDetail key={selected} id={selected} />
+          <SubmittedApplicationDetail
+            key={selected}
+            id={selected}
+            initialTab={params.get('tab') === 'clarifications' ? 'clarifications' : 'cv'}
+          />
         </Modal>
       )}
     </div>

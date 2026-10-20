@@ -85,6 +85,8 @@ export function RecruiterJobCreate({
   })
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const [importedSource, setImportedSource] = useState('')
+  const [importedLocation, setImportedLocation] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
   const current = methods.find((item) => item.id === method)
 
@@ -104,14 +106,12 @@ export function RecruiterJobCreate({
         file: source === 'file' ? file : null,
         text: source === 'text' ? jd : undefined,
       })
-      let matchedDeptId = parsed.departmentId
-      if (!matchedDeptId && departments.length > 0) {
-        matchedDeptId = departments[0].id
-      }
       setManualDraft({
         ...parsed,
-        departmentId: matchedDeptId,
+        departmentId: parsed.departmentId || '',
       })
+      setImportedSource(source === 'file' ? file!.name : 'Nội dung JD đã dán')
+      setImportedLocation(parsed.location)
       setManualTouched(true)
       onDirty()
       setMethod('manual')
@@ -150,6 +150,8 @@ export function RecruiterJobCreate({
         ...generated,
         departmentId: matchedDeptId,
       })
+      setImportedSource('')
+      setImportedLocation('')
       setManualTouched(true)
       onDirty()
       setMethod('manual')
@@ -162,6 +164,7 @@ export function RecruiterJobCreate({
   function selectFile(next?: File) {
     setDragging(false)
     if (!next) return
+    setFile(null)
     onDirty()
     if (!/\.(pdf|docx|md|txt)$/i.test(next.name)) {
       setFileError('Chọn file PDF, DOCX, MD hoặc TXT.')
@@ -271,21 +274,42 @@ export function RecruiterJobCreate({
         </button>
       </div>
       {method === 'manual' ? (
-        <RecruiterJobForm
-          initialDraft={manualDraft}
-          onDraftChange={setManualDraft}
-          departments={departments}
-          departmentError={departmentError}
-          onCreateDepartment={onCreateDepartment}
-          saving={saving}
-          saveError={saveError}
-          onDirty={() => {
-            setManualTouched(true)
-            onDirty()
-          }}
-          onSave={onSave}
-          onCancel={onCancel}
-        />
+        <>
+          {importedSource && (
+            <div className="hr-ai-ready" role="note">
+              <FileText size={19} />
+              <div>
+                <strong>Đã đọc: {importedSource}</strong>
+                {importedLocation && importedLocation !== jobWorkLocation(manualDraft.mode) && (
+                  <p>
+                    Địa điểm trong JD gốc: {importedLocation}. Địa điểm đăng tin áp dụng theo cách
+                    làm việc và văn phòng hiện tại của công ty; hãy kiểm tra sự khác biệt này.
+                  </p>
+                )}
+                <p>
+                  Hãy đối chiếu với tài liệu gốc, nhất là mức lương, thời gian và yêu cầu tuyển
+                  dụng. Kiểm tra cả trọng số tiêu chí AI đề xuất. Thông tin chưa có cần được bổ sung
+                  trước khi lưu.
+                </p>
+              </div>
+            </div>
+          )}
+          <RecruiterJobForm
+            initialDraft={manualDraft}
+            onDraftChange={setManualDraft}
+            departments={departments}
+            departmentError={departmentError}
+            onCreateDepartment={onCreateDepartment}
+            saving={saving}
+            saveError={saveError}
+            onDirty={() => {
+              setManualTouched(true)
+              onDirty()
+            }}
+            onSave={onSave}
+            onCancel={onCancel}
+          />
+        </>
       ) : (
         <>
           {aiError && (
@@ -299,7 +323,7 @@ export function RecruiterJobCreate({
               <strong>Trợ lý AI sẵn sàng hỗ trợ</strong>
               <p>
                 {method === 'import'
-                  ? 'AI sẽ đọc tài liệu hoặc văn bản JD, tự động bóc tách kỹ năng, mô tả và tiêu chí đánh giá.'
+                  ? 'AI đọc JD từ văn bản, PDF có chữ hoặc PDF scan để điền vào bản nháp cho bạn kiểm tra.'
                   : 'AI sẽ viết bản thảo JD hoàn chỉnh dựa trên các thông tin tóm tắt bạn cung cấp.'}
               </p>
             </div>
@@ -331,11 +355,19 @@ export function RecruiterJobCreate({
               {method === 'import' ? (
                 <>
                   <div className="hr-jd-source" role="group" aria-label="Nguồn JD">
-                    <button aria-pressed={source === 'text'} onClick={() => setSource('text')}>
+                    <button
+                      disabled={aiLoading}
+                      aria-pressed={source === 'text'}
+                      onClick={() => setSource('text')}
+                    >
                       <FileText size={16} />
                       Dán nội dung
                     </button>
-                    <button aria-pressed={source === 'file'} onClick={() => setSource('file')}>
+                    <button
+                      disabled={aiLoading}
+                      aria-pressed={source === 'file'}
+                      onClick={() => setSource('file')}
+                    >
                       <FileUp size={16} />
                       Tải tài liệu
                     </button>
@@ -344,8 +376,9 @@ export function RecruiterJobCreate({
                     <label className="hr-ai-field">
                       Nội dung JD
                       <textarea
+                        disabled={aiLoading}
                         rows={11}
-                        maxLength={50000}
+                        maxLength={12000}
                         value={jd}
                         onChange={(event) => {
                           setJd(event.target.value)
@@ -356,7 +389,7 @@ export function RecruiterJobCreate({
                         }
                       />
                       <small>
-                        {jd.length.toLocaleString('vi-VN')} / 50.000 ký tự · Giữ nguyên thông tin từ
+                        {jd.length.toLocaleString('vi-VN')} / 12.000 ký tự · Giữ nguyên thông tin từ
                         JD gốc.
                       </small>
                     </label>
@@ -365,6 +398,7 @@ export function RecruiterJobCreate({
                       <input
                         ref={fileInput}
                         type="file"
+                        disabled={aiLoading}
                         hidden
                         accept=".pdf,.docx,.md,.txt"
                         aria-label="Chọn tài liệu JD"
@@ -382,6 +416,7 @@ export function RecruiterJobCreate({
                         onDragLeave={() => setDragging(false)}
                         onDrop={(event) => {
                           event.preventDefault()
+                          if (aiLoading) return
                           if (event.dataTransfer.files.length > 1) {
                             setDragging(false)
                             setFileError('Mỗi lần chọn một tài liệu JD.')
@@ -398,11 +433,14 @@ export function RecruiterJobCreate({
                         <button
                           className="hr-button secondary"
                           type="button"
+                          disabled={aiLoading}
                           onClick={() => fileInput.current?.click()}
                         >
                           Chọn tài liệu
                         </button>
-                        <small>PDF, DOCX, MD, TXT · Tối đa 10 MB</small>
+                        <small>
+                          PDF có chữ hoặc scan (tối đa 10 trang), DOCX, MD, TXT · Tối đa 10 MB
+                        </small>
                       </div>
                       {file && (
                         <div className="hr-jd-selected">
@@ -419,6 +457,7 @@ export function RecruiterJobCreate({
                           <button
                             className="hr-icon-button"
                             aria-label="Bỏ tài liệu đã chọn"
+                            disabled={aiLoading}
                             onClick={() => {
                               setFile(null)
                               setFileError('')
@@ -582,7 +621,9 @@ export function RecruiterJobCreate({
               </button>
               <small id="hr-ai-action-note">
                 {method === 'import'
-                  ? 'AI sẽ đọc nội dung và tự động điền form để bạn xem lại'
+                  ? aiLoading
+                    ? 'PDF scan có thể mất vài phút. Giữ trang này mở trong lúc xử lý.'
+                    : 'Nội dung đọc được sẽ điền vào form để bạn kiểm tra trước khi lưu.'
                   : 'AI sẽ tạo bản nháp đầy đủ kỹ năng & tiêu chí để bạn duyệt'}
               </small>
             </div>

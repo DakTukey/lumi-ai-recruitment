@@ -1,6 +1,6 @@
 # Lumi AI Recruitment System
 
-Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Generative AI: Groq & Google Gemini), tích hợp toàn diện từ quy trình tạo CV, bóc tách CV từ PDF, xác thực chứng chỉ số, đối chiếu năng lực ứng viên đến quản lý tuyển dụng và gợi ý câu hỏi phỏng vấn chuyên sâu cho HR.
+Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Qwen cục bộ và các nhà cung cấp AI theo tính năng), tích hợp toàn diện từ tải và kiểm tra CV PDF, bóc tách thông tin, xác thực chứng chỉ số, đối chiếu năng lực ứng viên đến quản lý tuyển dụng và gợi ý câu hỏi phỏng vấn chuyên sâu cho HR.
 
 > 📖 **Chi tiết kiến trúc, luồng hoạt động 7 tính năng AI và bộ câu hỏi vấn đáp: Xem tại [README_AI.md](README_AI.md)**
 
@@ -9,12 +9,9 @@ Hệ thống tuyển dụng thông minh ứng dụng Trí tuệ Nhân tạo (Gen
 ## 🌟 Tính năng nổi bật
 
 ### 1. Dành cho Ứng viên (Candidate)
-- **CV Builder Đa năng:** Tạo và tùy biến CV chuyên nghiệp theo chuẩn quốc tế, hỗ trợ xuất bản in và lưu trữ phiên bản an toàn.
-- **AI Trợ lý Viết CV (`CvWritingAssistant`):** Gợi ý viết mô tả kinh nghiệm, dự án theo phương pháp STAR và số hóa thành tựu.
-- **AI Rà soát CV (`CvReviewAssistant`):** Phân tích và phát hiện các điểm yếu, lỗi diễn đạt trong CV theo thời gian thực.
-- **Xác thực Nền tảng Chứng chỉ Số (Credential Verification):**
-  - Tự động nhận diện và gắn nhãn xác thực từ các nền tảng uy tín: **Credly** (AWS, Cisco, Oracle...), **Coursera**, **HackerRank**, **Microsoft Learn**, **Google Cloud / Accredible**, **Udemy**.
-  - Cảnh báo và hướng dẫn tối ưu đối với liên kết lưu trữ cá nhân (Google Drive/Cloud).
+- **CV của tôi:** Tải nhiều PDF, xem nguyên bản, đổi tên và đặt mặc định.
+- **Đọc và xác nhận PDF:** Qwen đọc CV có chữ hoặc scan; ứng viên đối chiếu và sửa dữ liệu trước khi sử dụng.
+- **Lịch sử được giữ:** CV tạo trước đây chỉ xem; đơn đã nộp giữ nguyên bản CV tại thời điểm gửi.
 - **AI Đối chiếu Độ phù hợp với Job (`JobMatchPanel`):**
   - Chấm điểm phù hợp (0–100) theo thời gian thực trước khi nộp đơn.
   - Trực quan hóa bằng **Biểu đồ Radar đa chiều (Spider Chart)** và Biểu đồ Thanh ngang.
@@ -102,6 +99,8 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 Server AI sẽ lắng nghe tại: `http://127.0.0.1:8000` (Tài liệu Swagger: `http://127.0.0.1:8000/docs`).
 
+Muốn đọc PDF và đánh giá CV cho HR bằng Qwen chạy tại máy, xem [hướng dẫn Qwen cục bộ](docs/local-qwen-cv-processing.md).
+
 ---
 
 ### 3. Khởi chạy Backend (Spring Boot)
@@ -153,7 +152,7 @@ npm run dev
 
 | Vai trò | Email | Mật khẩu | Chức năng chính |
 |---|---|---|---|
-| **Ứng viên (Candidate)** | `candidate.test@example.com` | `Password123!` | Tạo CV, kiểm tra độ phù hợp, nộp hồ sơ |
+| **Ứng viên (Candidate)** | `candidate.test@example.com` | `Password123!` | Tải CV PDF, xác nhận thông tin, đối chiếu công việc, nộp hồ sơ |
 | **Nhà tuyển dụng (HR)** | `hr@gmail.com` | `Password123!` | Xem hồ sơ, AI phân tích, xem Top ứng viên, chuyển vòng |
 
 ---

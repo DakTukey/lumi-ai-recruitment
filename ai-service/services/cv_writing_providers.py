@@ -28,14 +28,19 @@ class Provider:
 _cooldowns: dict[tuple[str, str], float] = {}
 
 
-def providers() -> list[Provider]:
+def providers(feature: str = 'general') -> list[Provider]:
+    local_setting = {'cv_processing': 'CV_PROCESSING_PROVIDER', 'jd_import': 'JD_IMPORT_PROVIDER'}.get(feature)
+    if local_setting and os.getenv(local_setting, '').strip().lower() == 'ollama':
+        return [Provider('ollama', os.getenv('OLLAMA_MODEL', 'qwen3-vl:2b-instruct-q4_K_M'), '', 240)]
     return [
-        Provider('groq', os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b'), 'GROQ_API_KEY', 10),
-        Provider('gemini', os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'), 'GEMINI_API_KEY', 12),
+        Provider('groq', os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b'), 'GROQ_API_KEY', 15),
+        Provider('gemini', os.getenv('GEMINI_MODEL', 'gemini-3.1-flash-lite'), 'GEMINI_API_KEY', 15),
     ]
 
 
 def available(provider: Provider) -> bool:
+    if provider.name == 'ollama':
+        return time.monotonic() >= _cooldowns.get((provider.name, provider.model), 0)
     key = os.getenv(provider.key_env, '').strip()
     return bool(key and 'PASTE_YOUR_KEY' not in key
                 and time.monotonic() >= _cooldowns.get((provider.name, provider.model), 0))
@@ -57,7 +62,45 @@ _SCHEMA = {
 }
 
 
-async def generate(provider: Provider, prompt: str, schema: dict | None = None, max_tokens: int = 4096) -> str:
+async def generate(provider: Provider, prompt: str, schema: dict | None = None, max_tokens: int = 4096,
+                   images: list[str] | None = None) -> str:
+    if provider.name == 'ollama':
+        instructions, marker, source = prompt.partition('<INPUT_JSON>')
+        source = marker + source if marker else prompt
+        url = os.getenv('OLLAMA_BASE_URL', 'http://127.0.0.1:11434').rstrip('/')
+        if url not in ('http://127.0.0.1:11434', 'http://localhost:11434'):
+            raise ProviderUnavailable('invalid_local_url', 60)
+        payload = {
+            'model': provider.model,
+            'messages': [
+                {'role': 'system', 'content': instructions},
+                {'role': 'user', 'content': source, **({'images': images} if images else {})},
+            ],
+            'stream': False,
+            'think': False,
+            'format': schema or _SCHEMA,
+            'options': {'temperature': 0, 'num_ctx': 16384, 'num_predict': max_tokens},
+            'keep_alive': 0,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(provider.timeout, connect=3), follow_redirects=False) as client:
+                response = await client.post(f'{url}/api/chat', json=payload)
+        except httpx.RequestError:
+            raise ProviderUnavailable('local_model_unavailable', 15) from None
+        if response.is_error or response.is_redirect:
+            raise ProviderUnavailable(f'local_http_{response.status_code}', 15)
+        if len(response.content) > 262144:
+            raise ProviderUnavailable('response_too_large')
+        try:
+            data = response.json()
+            if data.get('done_reason') not in (None, 'stop'):
+                raise ProviderUnavailable('incomplete_response')
+            answer = data['message']['content']
+            if not isinstance(answer, str) or not answer.strip():
+                raise ProviderUnavailable('empty_response')
+            return answer
+        except (KeyError, TypeError, ValueError):
+            raise ProviderUnavailable('invalid_response') from None
     key = os.environ.get(provider.key_env, '').strip()
     if not key:
         raise ProviderUnavailable('not_configured', 60)

@@ -94,6 +94,10 @@ export function del<T = void>(path: string): Promise<ApiResponse<T>> {
   return request<T>('DELETE', path)
 }
 
-export function upload<T>(path: string, formData: FormData): Promise<ApiResponse<T>> {
-  return request<T>('POST', path, formData, 65000)
+export function upload<T>(
+  path: string,
+  formData: FormData,
+  options?: { timeoutMs?: number },
+): Promise<ApiResponse<T>> {
+  return request<T>('POST', path, formData, options?.timeoutMs ?? 65000)
 }

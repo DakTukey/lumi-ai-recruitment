@@ -51,6 +51,10 @@ public class AiServiceClient {
         try { restClient().get().uri("/health").retrieve().toBodilessEntity(); return true; }
         catch (Exception e) { return false; }
     }
+    public com.lumi.recruitment.dto.ApplicationClarificationDto.Generated clarificationQuestions(Object input) {
+        return cvReviewCall("/api/application-clarifications", input,
+            com.lumi.recruitment.dto.ApplicationClarificationDto.Generated.class);
+    }
     public CvWritingDto.Result rewriteCv(CvWritingDto.Request input) {
         try {
             var result = restClient().post().uri("/api/cv-writing").contentType(MediaType.APPLICATION_JSON)
@@ -117,14 +121,14 @@ public class AiServiceClient {
             log.warn("CV parsing error from AI service (status {})", e.getStatusCode());
             if (e.getStatusCode().value() == 422) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Không thể bóc tách nội dung file này. Hãy thử file PDF khác hoặc nhập vào form.");
+                    "Không thể đọc nội dung file này. Bạn vẫn có thể nộp PDF gốc hoặc chọn PDF khác rõ hơn.");
             }
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Dịch vụ AI chưa bóc tách được CV lúc này. Bạn vẫn có thể tự điền vào form; hãy thử lại sau.");
+                "AI chưa đọc được CV lúc này. PDF vẫn được giữ và bạn có thể nộp hồ sơ ngay; hãy thử đọc lại sau.");
         } catch (Exception e) {
             log.warn("CV parse request failed ({})", e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Dịch vụ AI chưa bóc tách được CV lúc này. Bạn vẫn có thể tự điền vào form; hãy thử lại sau.");
+                "AI chưa đọc được CV lúc này. PDF vẫn được giữ và bạn có thể nộp hồ sơ ngay; hãy thử đọc lại sau.");
         }
     }
 
@@ -154,7 +158,7 @@ public class AiServiceClient {
             log.warn("JD parsing error from AI service (status {})", e.getStatusCode());
             if (e.getStatusCode().value() == 422) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Không thể bóc tách nội dung JD này. Hãy kiểm tra lại tài liệu hoặc dán văn bản trực tiếp.");
+                    "Không đọc được JD. Văn bản tối đa 12.000 ký tự; PDF cần rõ nét, không có mật khẩu và tối đa 10 trang.");
             }
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Dịch vụ AI phân tích JD tạm thời không khả dụng. Bạn vẫn có thể nhập thủ công; hãy thử lại sau.");
@@ -204,4 +208,55 @@ public class AiServiceClient {
                 "Dịch vụ AI tạo email tạm thời không khả dụng. Vui lòng thử lại sau.");
         }
     }
+
+    public com.lumi.recruitment.dto.GithubVerificationDto.WireResult verifyGithub(String githubUrl, java.util.List<String> cvSkills, java.util.List<Object> cvProjects) {
+        try {
+            var body = java.util.Map.of(
+                "github_url", githubUrl,
+                "cv_skills", cvSkills != null ? cvSkills : java.util.List.of(),
+                "cv_projects", cvProjects != null ? cvProjects : java.util.List.of()
+            );
+            var result = restClient().post().uri("/api/github-verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.GithubVerificationDto.WireResult.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("GitHub verification failed with status {}: {}", e.getStatusCode(), e.getMessage());
+            if (e.getStatusCode().value() == 422) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Không thể kiểm tra GitHub: URL không hợp lệ hoặc không tìm thấy tài khoản.");
+            }
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ kiểm tra GitHub tạm thời không khả dụng. Hãy thử lại sau.");
+        } catch (Exception e) {
+            log.warn("GitHub verification request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ kiểm tra GitHub tạm thời không khả dụng. Hãy thử lại sau.");
+        }
+    }
+
+    public com.lumi.recruitment.dto.InterviewScorecardDto.AiGenerateWireResult generateInterviewScorecard(java.util.Map<String, Object> payload) {
+        try {
+            var result = restClient().post().uri("/api/interview-scorecard/generate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .body(com.lumi.recruitment.dto.InterviewScorecardDto.AiGenerateWireResult.class);
+            if (result == null) throw new IllegalStateException("Empty AI response");
+            return result;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.warn("Interview scorecard generation failed with status {}: {}", e.getStatusCode(), e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ tạo phiếu phỏng vấn AI tạm thời không khả dụng. Hãy thử lại sau.");
+        } catch (Exception e) {
+            log.warn("Interview scorecard request failed ({})", e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Dịch vụ tạo phiếu phỏng vấn AI tạm thời không khả dụng. Hãy thử lại sau.");
+        }
+    }
 }
+
+

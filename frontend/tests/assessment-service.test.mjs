@@ -67,7 +67,10 @@ test('explicit reanalysis sends force, CSRF and waits beyond the AI service dead
     assert.deepEqual(JSON.parse(calls[1].options.body), { force: true })
     assert.equal(calls[1].options.headers.get('X-CSRF-TOKEN'), 'csrf-test')
     assert.equal(calls[1].options.credentials, 'include')
-    assert.ok(deadlines.includes(40000))
+    assert.ok(
+      deadlines.some((ms) => ms > 270000),
+      'HR reanalysis must outlast the configured AI request deadline',
+    )
   } finally {
     globalThis.fetch = previousFetch
     AbortSignal.timeout = previousTimeout

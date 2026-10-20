@@ -58,6 +58,7 @@ ai-service/env/
 ai-service/.env
 ai-service/.env.*
 !ai-service/.env.example
+ai-service/.local-ai/
 
 # Temporary / Agent artifacts
 .agents/

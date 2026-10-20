@@ -1,5 +1,7 @@
 # CV có cấu trúc — Flyway V5–V6
 
+> Luồng hiện tại chỉ nhận CV PDF cho đối chiếu và đơn mới. Tạo/sửa CV web đã ngừng; phần mô tả Builder bên dưới là tài liệu lịch sử. Xem [luồng PDF hiện tại](pdf-only-candidate-cv.md).
+
 Đã triển khai `candidate.resumes`. Một hồ sơ ứng viên có 0–N CV; mỗi CV thuộc
 một hồ sơ qua `candidate_id → candidate.candidate_profiles.user_id`.
 Entity là `com.lumi.recruitment.entity.candidate.Resume`, quan hệ `@ManyToOne` lazy.

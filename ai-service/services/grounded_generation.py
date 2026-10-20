@@ -20,13 +20,15 @@ def strict_schema(schema):
     return schema
 
 
-async def generate_grounded(prompt, schema, normalize, max_tokens=8192):
+async def generate_grounded(prompt, schema, normalize, max_tokens=8192, feature='general'):
     # No unbounded queue. Spring also limits authenticated matching requests.
     if _slots.locked():
         raise upstream.ProviderUnavailable('busy')
-    async with _slots, asyncio.timeout(28):
-        for configured in upstream.providers():
-            provider = replace(configured, timeout=10 if configured.name == 'groq' else 16)
+    selected = upstream.providers(feature)
+    local = any(p.name == 'ollama' for p in selected)
+    async with _slots, asyncio.timeout(250 if local else 28):
+        for configured in selected:
+            provider = replace(configured, timeout=240 if configured.name == 'ollama' else 10 if configured.name == 'groq' else 16)
             if not upstream.available(provider):
                 continue
             try:

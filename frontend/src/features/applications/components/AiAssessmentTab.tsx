@@ -9,10 +9,12 @@ import { submittedDate } from '../../../services/application.service'
 export function AiAssessmentTab({
   applicationId,
   jobSnapshot,
+  isOriginalPdf = false,
   onChanged,
 }: {
   applicationId: string
   jobSnapshot: SubmittedApplication['jobSnapshot']
+  isOriginalPdf?: boolean
   onChanged?: () => void
 }) {
   const [assessment, setAssessment] = useState<AiAssessment | null | undefined>(undefined)
@@ -41,6 +43,17 @@ export function AiAssessmentTab({
       active = false
     }
   }, [applicationId, retry])
+  useEffect(() => {
+    if (assessment !== null) return
+    let active = true
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      void getAssessment(applicationId).then((data) => {
+        if (active && data) setAssessment(data)
+      }).catch(() => {})
+    }, 10000)
+    return () => { active = false; clearInterval(timer) }
+  }, [applicationId, assessment])
   async function analyze(force: boolean) {
     if (posting.current) return
     posting.current = true
@@ -79,6 +92,7 @@ export function AiAssessmentTab({
   if (assessment === undefined) return <p role="status">Đang kiểm tra kết quả AI…</p>
   return (
     <section className="hr-assessment">
+      {isOriginalPdf && <p className="submitted-caption">Kết quả dựa trên thông tin AI đọc từ PDF. Nếu một mục chưa có căn cứ hoặc có vẻ thiếu, hãy đối chiếu PDF gốc trước khi quyết định.</p>}
       {error && (
         <div className="hr-form-error" role="alert">
           <p>{error}</p>
@@ -88,7 +102,7 @@ export function AiAssessmentTab({
         <div className="hr-empty">
           <Sparkles size={28} />
           <h3>Chưa có kết quả AI</h3>
-          <p>Đối chiếu CV và JD lúc nộp, giải thích mức phù hợp và đề xuất câu hỏi kiểm chứng.</p>
+          <p>Hệ thống tự xử lý CV sau khi nộp. Nếu đang đọc PDF, kết quả sẽ hiện ở đây khi hoàn tất; HR vẫn xem được PDF gốc trong lúc chờ.</p>
           <button className="hr-button" onClick={() => void analyze(false)} disabled={loading}>
             <Sparkles size={16} />
             {loading ? 'Đang phân tích…' : 'Phân tích ngay'}

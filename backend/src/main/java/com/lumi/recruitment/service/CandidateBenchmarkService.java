@@ -27,12 +27,19 @@ public class CandidateBenchmarkService {
     private record Peer(String jobHash,String jobJson,String model,String version,String evaluation,String assessmentHash,Integer score,JsonNode criteria,String taskState) {}
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public CandidateBenchmarkDto compare(Authentication auth,UUID job,UUID resume) {
+        return compareSource(auth,job,resume,false);
+    }
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public CandidateBenchmarkDto comparePdf(Authentication auth,UUID job,UUID document) {
+        return compareSource(auth,job,document,true);
+    }
+    private CandidateBenchmarkDto compareSource(Authentication auth,UUID job,UUID resume,boolean pdf) {
         // This also checks active candidate, CV ownership/READY, live job and content fingerprint.
-        var own=matches.getCachedMatch(auth,job,resume);
+        var own=pdf?matches.getCachedPdfMatch(auth,job,resume):matches.getCachedMatch(auth,job,resume);
         int minimum=Math.max(10,configuredMinimum);
         if(own==null) return empty("NEEDS_MATCH",minimum,0,0,0,null);
         var user=users.findByEmail(auth.getName()).orElseThrow();
-        String hash=jdbc.queryForObject("select job_context_hash from recruitment.candidate_job_matches where candidate_id=? and job_id=? and resume_id=? and evaluation_version=?",String.class,user.getId(),job,resume,AssessmentContext.EVALUATION_VERSION);
+        String hash=jdbc.queryForObject("select job_context_hash from "+(pdf?"recruitment.candidate_pdf_job_matches":"recruitment.candidate_job_matches")+" where candidate_id=? and job_id=? and "+(pdf?"document_id":"resume_id")+"=? and evaluation_version=?",String.class,user.getId(),job,resume,AssessmentContext.EVALUATION_VERSION);
         if(hash==null) return empty("NEEDS_MATCH",minimum,0,0,0,null);
         var peers=jdbc.query("""
             select a.ai_job_context_hash,a.job_snapshot::text,ai.model_name,ai.prompt_version,ai.evaluation_version,ai.job_context_hash,

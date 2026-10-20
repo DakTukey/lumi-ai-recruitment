@@ -4,13 +4,25 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './cv-pdf-import.css'
 
 /** Canvas rendering also works in browsers without an embedded PDF plugin. */
-export function PdfDocumentViewer({ url, title }: { url: string; title: string }) {
-  return <PdfPages key={url} url={url} title={title} />
+type ViewerProps = {
+  url: string
+  title: string
+  page?: number
+  onPageChange?: (page: number) => void
 }
 
-function PdfPages({ url, title }: { url: string; title: string }) {
+export function PdfDocumentViewer(props: ViewerProps) {
+  return <PdfPages key={props.url} {...props} />
+}
+
+function PdfPages({ url, title, page, onPageChange }: ViewerProps) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
+  const activePage = Math.max(1, Math.min(page ?? pageNumber, document?.numPages ?? 10))
+  const go = (next: number) => {
+    if (onPageChange) onPageChange(next)
+    else setPageNumber(next)
+  }
   const [error, setError] = useState('')
   const [width, setWidth] = useState(500)
   const container = useRef<HTMLDivElement>(null)
@@ -19,7 +31,9 @@ function PdfPages({ url, title }: { url: string; title: string }) {
   useEffect(() => {
     const node = container.current
     if (!node) return
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(160, Math.floor(entry.contentRect.width))))
+    const observer = new ResizeObserver(([entry]) =>
+      setWidth(Math.max(160, Math.floor(entry.contentRect.width))),
+    )
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
@@ -33,19 +47,29 @@ function PdfPages({ url, title }: { url: string; title: string }) {
         const pdfjs = await import('pdfjs-dist')
         if (cancelled) return
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-        const response = await fetch(url, { credentials: 'include', cache: 'no-store', signal: controller.signal })
+        const response = await fetch(url, {
+          credentials: 'include',
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         if (!response.ok) throw new Error('file-unavailable')
         const data = new Uint8Array(await response.arrayBuffer())
         if (cancelled) return
         const task = pdfjs.getDocument({ data, enableXfa: false })
-        destroy = () => { void task.destroy() }
+        destroy = () => {
+          void task.destroy()
+        }
         const pdf = await task.promise
         if (!cancelled) setDocument(pdf)
       } catch {
         if (!cancelled) setError('Chưa xem được PDF. Hãy thử mở bản gốc hoặc tải lại trang.')
       }
     })()
-    return () => { cancelled = true; controller.abort(); destroy?.() }
+    return () => {
+      cancelled = true
+      controller.abort()
+      destroy?.()
+    }
   }, [url])
 
   useEffect(() => {
@@ -55,7 +79,7 @@ function PdfPages({ url, title }: { url: string; title: string }) {
     let cancelRender: (() => void) | undefined
     void (async () => {
       try {
-        const page = await document.getPage(pageNumber)
+        const page = await document.getPage(activePage)
         if (cancelled) return
         const base = page.getViewport({ scale: 1 })
         const ratio = Math.min(window.devicePixelRatio || 1, 2)
@@ -69,17 +93,51 @@ function PdfPages({ url, title }: { url: string; title: string }) {
         if (!cancelled) setError('Chưa hiển thị được trang PDF này. Bạn có thể mở bản gốc để xem.')
       }
     })()
-    return () => { cancelled = true; cancelRender?.() }
-  }, [document, pageNumber, width])
+    return () => {
+      cancelled = true
+      cancelRender?.()
+    }
+  }, [document, activePage, width])
 
-  return <section className="cv-pdf-viewer" aria-label={title}>
-    <div className="cv-pdf-toolbar">
-      <button type="button" disabled={!document || pageNumber <= 1} onClick={() => setPageNumber(n => n - 1)} aria-label="Trang PDF trước">←</button>
-      <span aria-live="polite">{document ? `Trang ${pageNumber} / ${document.numPages}` : 'Đang tải PDF…'}</span>
-      <button type="button" disabled={!document || pageNumber >= document.numPages} onClick={() => setPageNumber(n => n + 1)} aria-label="Trang PDF sau">→</button>
-      <a href={url} target="_blank" rel="noreferrer">Mở bản gốc ↗</a>
-    </div>
-    {error && <p role="alert" className="form-error">{error}</p>}
-    <div className="cv-pdf-canvas" ref={container}><canvas ref={canvas} role="img" aria-label={`${title} · Trang ${pageNumber}`} hidden={!document || !!error} /></div>
-  </section>
+  return (
+    <section className="cv-pdf-viewer" aria-label={title}>
+      <div className="cv-pdf-toolbar">
+        <button
+          type="button"
+          disabled={!document || activePage <= 1}
+          onClick={() => go(activePage - 1)}
+          aria-label="Trang PDF trước"
+        >
+          ←
+        </button>
+        <span aria-live="polite">
+          {document ? `Trang ${activePage} / ${document.numPages}` : 'Đang tải PDF…'}
+        </span>
+        <button
+          type="button"
+          disabled={!document || activePage >= document.numPages}
+          onClick={() => go(activePage + 1)}
+          aria-label="Trang PDF sau"
+        >
+          →
+        </button>
+        <a href={url} target="_blank" rel="noreferrer">
+          Mở bản gốc ↗
+        </a>
+      </div>
+      {error && (
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+      )}
+      <div className="cv-pdf-canvas" ref={container}>
+        <canvas
+          ref={canvas}
+          role="img"
+          aria-label={`${title} · Trang ${activePage}`}
+          hidden={!document || !!error}
+        />
+      </div>
+    </section>
+  )
 }

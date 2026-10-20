@@ -1,7 +1,7 @@
 import type { CvDocument, ResumeInput } from '../../services/resume.service'
 /** Start clean: never merge another CV/profile into an imported document. */
 export function importedDraft(document: CvDocument): ResumeInput {
-  const p = document.parsed
+  const p = document.reviewed ?? document.parsed
   if (!p) throw new Error('PDF chưa có kết quả trích xuất.')
   return {
     title: p.title || 'CV từ PDF', fullName: p.fullName || '', email: p.email || '',

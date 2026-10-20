@@ -29,11 +29,11 @@ export function candidateJobLoginDestination(value: unknown) {
 }
 
 // These links carry identifiers only; the API still verifies ownership and current versions.
-export function jobMatchPath(jobId: string | number, resumeId?: string) {
+export function jobMatchPath(jobId: string | number, documentId?: string) {
   const params = new URLSearchParams({ match: '1' })
-  if (resumeId) params.set('resumeId', resumeId)
+  if (documentId) params.set('documentId', documentId)
   return `${jobDetailPath(jobId)}?${params}#job-cv-match`
 }
-export function improveCvPath(jobId: string, resumeId: string) {
-  return `/cv-builder?${new URLSearchParams({ id: resumeId, jobId, returnTo: 'match' })}`
+export function improveCvPath(jobId: string, documentId: string) {
+  return `/profile?${new URLSearchParams({ tab: 'cv', documentId, jobId })}`
 }

@@ -200,12 +200,19 @@ export function emptyDraft(): JobDraft {
 }
 // The company currently has one office. Keep form, preview and saved draft consistent.
 export function jobWorkLocation(mode: string) {
+  if (!mode) return ''
   return mode === 'Remote' ? 'Làm việc từ xa' : 'Đà Nẵng'
 }
 export function validateDraft(draft: JobDraft, publish = false): Record<string, string> {
   const errors: Record<string, string> = {}
   if (!draft.title.trim()) errors.title = 'Nhập tiêu đề tin tuyển dụng.'
   if (draft.title.trim().length > 255) errors.title = 'Tiêu đề tin tối đa 255 ký tự.'
+  if (!['Intern', 'Junior', 'Middle', 'Senior'].includes(draft.level))
+    errors.level = 'Chọn cấp độ kinh nghiệm.'
+  if (!['Hybrid', 'Remote', 'Tại văn phòng'].includes(draft.mode))
+    errors.mode = 'Chọn cách làm việc.'
+  if (!Object.hasOwn(contractLabels, draft.employmentType))
+    errors.employmentType = 'Chọn hình thức hợp đồng.'
   if (!draft.location.trim()) errors.location = 'Nhập địa điểm làm việc.'
   if (draft.location.trim().length > 255) errors.location = 'Địa điểm tối đa 255 ký tự.'
   if (!/^\d+$/.test(draft.headcount) || Number(draft.headcount) < 1)

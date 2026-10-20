@@ -5,9 +5,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../../app/providers/auth-context'
 import { ApiError } from '../../../services/api'
 import { applyToJob, getApplications } from '../../../services/application.service'
-import { cvDocumentUrl, getMyResumes } from '../../../services/resume.service'
-import { CvPreview } from '../../resumes/CvPreview'
-import type { Resume } from '../../../types/domain'
+import { cvDocumentUrl, getCvDocuments } from '../../../services/resume.service'
+import type { CvDocument } from '../../../services/resume.service'
 import './applications.css'
 import '../../resumes/cv-pdf-import.css'
 import { jobApplicationPath } from '../../jobs/candidate-job-route'
@@ -15,10 +14,10 @@ export function ApplyWithResume({
   jobId,
   onBusy,
   onSubmitted,
-  preferredResumeId,
+  preferredDocumentId,
 }: {
   jobId: string
-  preferredResumeId?: string
+  preferredDocumentId?: string
   onBusy: (busy: boolean) => void
   onSubmitted?: () => void
 }) {
@@ -26,13 +25,12 @@ export function ApplyWithResume({
   const [retry, setRetry] = useState(0)
   const [result, setResult] = useState<{
     key: string
-    resumes?: Resume[]
+    documents?: CvDocument[]
     applied?: boolean
     applicationId?: string
     error?: string
   } | null>(null)
   const [selected, setSelected] = useState('')
-  const [format, setFormat] = useState<'BUILDER' | 'ORIGINAL_PDF'>('BUILDER')
   const [letter, setLetter] = useState('')
   const [busy, setBusy] = useState(false)
   const saving = useRef(false)
@@ -44,20 +42,22 @@ export function ApplyWithResume({
   useEffect(() => {
     if (user?.role !== 'CANDIDATE') return
     let active = true
-    Promise.all([getMyResumes(), getApplications(false, new URLSearchParams({ jobId, size: '1' }))])
-      .then(([resumes, apps]) => {
+    Promise.all([
+      getCvDocuments(),
+      getApplications(false, new URLSearchParams({ jobId, size: '1' })),
+    ])
+      .then(([documents, apps]) => {
         if (!active) return
-        const ready = resumes.filter((r) => r.status === 'READY')
-        setSelected(
-          (
-            ready.find((r) => r.id === preferredResumeId) ??
-            ready.find((r) => r.isDefault) ??
-            ready[0]
-          )?.id ?? '',
-        )
+        const preferred = documents.find((d) => d.id === preferredDocumentId)
+        const selected =
+          preferred ??
+          documents.find((d) => d.isDefault) ??
+          documents.find((d) => d.confirmedAt) ??
+          documents[0]
+        setSelected(selected ? `pdf:${selected.id}` : '')
         setResult({
           key,
-          resumes: ready,
+          documents,
           applied: apps.totalElements > 0,
           applicationId: apps.content[0]?.id,
         })
@@ -68,7 +68,7 @@ export function ApplyWithResume({
     return () => {
       active = false
     }
-  }, [key, jobId, user?.role, preferredResumeId])
+  }, [key, jobId, user?.role, preferredDocumentId])
   if (!user)
     return (
       <div className="empty-state">
@@ -103,32 +103,46 @@ export function ApplyWithResume({
         <Link className="button" to="/applications">
           Theo dõi đơn ứng tuyển
         </Link>
+        {(submittedId || current.applicationId) && (
+          <p>
+            <Link
+              to={`/applications?application=${encodeURIComponent(submittedId || current.applicationId!)}&tab=clarifications`}
+            >
+              Bổ sung thông tin cho HR · Không bắt buộc
+            </Link>
+          </p>
+        )}
       </div>
     )
-  if (!current.resumes?.length)
+  if (!current.documents?.length)
     return (
       <div className="empty-state">
-        <h3>Bạn cần một CV đã hoàn tất</h3>
-        <p>CV bản nháp chưa thể nộp. Tạo CV mới hoặc mở một CV đang có để hoàn tất.</p>
+        <h3>Chọn một CV để gửi</h3>
+        <p>Tải CV PDF của bạn lên để gửi ngay. AI sẽ phân tích sau khi nộp.</p>
         <div className="modal-actions">
-          <Link className="button" to={`/cv-builder?jobId=${jobId}`}>
-            Tạo CV
-          </Link>
           <Link className="button secondary" to={`/profile?tab=cv&jobId=${jobId}`}>
-            CV của tôi
+            Tải CV PDF
           </Link>
         </div>
       </div>
     )
-  const resume = current.resumes.find((r) => r.id === selected)
+  const document = current.documents?.find((d) => `pdf:${d.id}` === selected)
   async function submit() {
-    if (!resume || saving.current) return
+    if (!document || saving.current) return
     saving.current = true
     setBusy(true)
     onBusy(true)
     setError('')
     try {
-      const application = await applyToJob(jobId, resume.id, resume.version, letter, format)
+      const application = await applyToJob(
+        jobId,
+        null,
+        null,
+        letter,
+        'ORIGINAL_PDF',
+        document.id,
+        document.confirmedAt ? document.reviewVersion : undefined,
+      )
       setSubmittedId(application.id)
       setSubmitted(true)
       onSubmitted?.()
@@ -164,35 +178,41 @@ export function ApplyWithResume({
         void submit()
       }}
     >
-      <label>
-        CV đã hoàn tất
-        <select
-          aria-label="Chọn CV đã hoàn tất"
-          value={selected}
-          disabled={busy}
-          onChange={(e) => {setSelected(e.target.value);setFormat('BUILDER')}}
-        >
-          {current.resumes.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.title}
-              {r.isDefault ? ' · Mặc định' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
-      {resume?.sourceDocumentId && <fieldset className="cv-source-choice"><legend>Chọn bản CV gửi cho HR</legend>
-        <label><input type="radio" name="submissionFormat" checked={format === 'BUILDER'} disabled={busy} onChange={() => setFormat('BUILDER')} />Bản đã chỉnh sửa trong app</label>
-        <label><input type="radio" name="submissionFormat" checked={format === 'ORIGINAL_PDF'} disabled={busy} onChange={() => setFormat('ORIGINAL_PDF')} />PDF gốc đã tải lên</label>
-        <p>{format === 'ORIGINAL_PDF' ? 'HR nhận đúng PDF gốc. Các chỉnh sửa trong app không nằm trong PDF. AI dùng nội dung trích xuất từ PDF này, kết quả có thể cần HR kiểm tra lại.' : 'HR nhận bản CV đã lưu trong app; PDF gốc không đính kèm đơn này.'}</p>
-      </fieldset>}
-      {resume && (
+      <fieldset className="cv-source-choice">
+        <legend>Chọn CV gửi cho nhà tuyển dụng</legend>
+        {current.documents?.map((d) => (
+          <label key={d.id}>
+            <input
+              type="radio"
+              name="selectedCv"
+              value={`pdf:${d.id}`}
+              checked={selected === `pdf:${d.id}`}
+              disabled={busy}
+              onChange={() => setSelected(`pdf:${d.id}`)}
+            />
+            {d.title} · PDF riêng{d.isDefault ? ' · Mặc định' : ''}
+          </label>
+        ))}
+        <Link to={`/profile?tab=cv&jobId=${encodeURIComponent(jobId)}`}>Tải thêm CV PDF</Link>
+      </fieldset>
+      {document && (
         <details className="application-ready-preview" open>
-          <summary>Xem lại CV sẽ gửi · {resume.title}</summary>
+          <summary>Xem lại CV sẽ gửi · {document.title}</summary>
           <div className="submitted-cv">
-            {format === 'ORIGINAL_PDF' && resume.sourceDocumentId ? <>
-              <a href={cvDocumentUrl(resume.sourceDocumentId)} target="_blank" rel="noreferrer">Mở PDF sẽ gửi</a>
-              <PdfDocumentViewer title="PDF sẽ gửi cho HR" url={cvDocumentUrl(resume.sourceDocumentId)} />
-            </> : <CvPreview draft={resume} skills={resume.skills} /> }
+            <a href={cvDocumentUrl(document.id)} target="_blank" rel="noreferrer">
+              Mở PDF sẽ gửi
+            </a>
+            <PdfDocumentViewer title="PDF sẽ gửi" url={cvDocumentUrl(document.id)} />
+            <p role="status">
+              {document.confirmedAt
+                ? 'Thông tin bạn đã xác nhận sẽ được lưu cùng PDF gốc.'
+                : 'Bạn có thể gửi PDF ngay. AI sẽ đọc và đối chiếu sau khi nộp; HR vẫn xem được file gốc trong lúc chờ.'}
+            </p>
+            <Link
+              to={`/profile?${new URLSearchParams({ tab: 'cv', jobId, documentId: document.id })}`}
+            >
+              Kiểm tra thông tin AI đọc (tùy chọn)
+            </Link>
           </div>
         </details>
       )}
@@ -207,10 +227,9 @@ export function ApplyWithResume({
         />
       </label>
       <p className="muted small-text">
-        Sau khi gửi, nội dung năng lực trong CV và JD được AI (Groq hoặc Gemini dự phòng) phân tích
-        để hỗ trợ đối chiếu và thống kê ẩn danh. Họ tên, email và số điện thoại không được gửi tới
-        AI. Bản CV đã lưu sẽ được gửi cùng đơn. Thay đổi chưa lưu trong trình tạo CV không nằm trong
-        hồ sơ này.
+        PDF gốc được lưu cố định cùng đơn. Không cần chờ AI hoặc xác nhận dữ liệu trích xuất để ứng
+        tuyển. Nếu AI chưa khả dụng, hồ sơ vẫn đến HR; kết quả phân tích sẽ được bổ sung khi xử lý
+        thành công. Thay đổi CV sau khi nộp không làm đổi hồ sơ đã gửi.
       </p>
       {error && (
         <div role="alert">
@@ -220,7 +239,7 @@ export function ApplyWithResume({
           </button>
         </div>
       )}
-      <button className="button" disabled={busy || !resume} type="submit">
+      <button className="button" disabled={busy || !document} type="submit">
         {busy ? 'Đang gửi hồ sơ…' : 'Xác nhận gửi hồ sơ'}
       </button>
     </form>

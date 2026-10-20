@@ -466,35 +466,10 @@ export function ProfilePage() {
                 title="CV & tài liệu"
                 subtitle="Chuẩn bị CV để giới thiệu kinh nghiệm và dự án của bạn."
               >
-                <nav className="candidate-cv-options" aria-label="Các lựa chọn CV">
-                  <span aria-current="page">
-                    <FileText size={16} />
-                    CV của tôi
-                  </span>
-                  <Link to="/cv-builder">
-                    <Sparkles size={16} />
-                    Tạo CV mới <ArrowRight size={14} />
-                  </Link>
-                </nav>
                 <ResumeLibrary />
-                <div className="candidate-document-empty">
-                  <span className="candidate-document-icon">
-                    <FileText size={32} />
-                  </span>
-                  <h3>Tải lên CV (PDF) & Quét bằng AI</h3>
-                  <p>
-                    Tải tệp PDF từ máy của bạn. Trợ lý AI sẽ đọc hiểu cấu trúc, kỹ năng, kinh nghiệm và đưa vào trình tạo CV để bạn kiểm tra.
-                  </p>
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
-                    <Link className="button primary" to="/cv-builder?import=pdf">
-                      <Sparkles size={16} />
-                      Quét CV bằng AI trong CV Builder
-                    </Link>
-                  </div>
-                  <small>Hỗ trợ tệp PDF đa cột, Canva, TopCV · Tối đa 10 MB</small>
-                </div>
                 <p className="candidate-document-notice">
-                  Mẹo: Bạn có thể nhập nhanh tệp PDF trực tiếp trong trình tạo CV để tự động điền các mục.
+                  Gửi CV PDF ngay, giữ nguyên bố cục. AI phân tích sau khi nộp; bạn có thể kiểm
+                  tra thông tin trước nếu muốn đối chiếu công việc.
                 </p>
               </ProfileCard>
             )}
@@ -505,12 +480,12 @@ export function ProfilePage() {
               <span className="candidate-cv-promo-icon">
                 <Sparkles size={22} />
               </span>
-              <h2>Biến hồ sơ thành CV</h2>
-              <p>Chọn mẫu, điền sẵn từ Hồ sơ và chỉnh sửa nội dung theo cách của bạn.</p>
-              <Link className="button" to="/cv-builder">
-                Tạo CV mới <ArrowRight size={16} />
+              <h2>Sẵn sàng với CV của bạn</h2>
+              <p>Tải CV PDF và chọn bản phù hợp để ứng tuyển. Không cần chờ AI đọc xong.</p>
+              <Link className="button" to="/profile?tab=cv">
+                Quản lý CV PDF <ArrowRight size={16} />
               </Link>
-              <small>Chỉnh sửa & xuất PDF · Gợi ý và rà soát bằng AI</small>
+              <small>PDF gốc · Kiểm tra thông tin · Đối chiếu công việc</small>
             </section>
             <section className="candidate-card candidate-completion-card">
               <div className="candidate-completion-heading">

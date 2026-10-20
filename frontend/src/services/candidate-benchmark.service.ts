@@ -29,10 +29,10 @@ export type CandidateBenchmark = {
   criteria: BenchmarkCriterion[]
   asOf: string
 }
-export const getCandidateBenchmark = async (jobId: string, resumeId: string) =>
+export const getCandidateBenchmark = async (jobId: string, documentId: string) =>
   (
     await get<CandidateBenchmark>(
-      `/candidate/jobs/${encodeURIComponent(jobId)}/benchmark?resumeId=${encodeURIComponent(resumeId)}`,
+      `/candidate/jobs/${encodeURIComponent(jobId)}/benchmark/pdf?documentId=${encodeURIComponent(documentId)}`,
     )
   ).data
 export type ApplicationAiStatus = {
@@ -44,6 +44,9 @@ export type ApplicationAiStatus = {
   summary: string | null
   evaluatedAt: string | null
 }
-export const getApplicationAiStatus = async (id: string) =>
-  (await get<ApplicationAiStatus>(`/candidate/applications/${encodeURIComponent(id)}/ai-status`))
-    .data
+export const getApplicationAiStatus = async (id: string, staff = false) =>
+  (
+    await get<ApplicationAiStatus>(
+      `/${staff ? 'recruiter' : 'candidate'}/applications/${encodeURIComponent(id)}/ai-status`,
+    )
+  ).data

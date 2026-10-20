@@ -31,6 +31,7 @@ public class ApplicationService {
  private final ObjectMapper mapper;
  private final AssessmentContext assessmentContexts;
  private final AiAnalysisTaskService aiTasks;
+ private final CvBuilderPolicy builderPolicy;
  private static final List<String> STAGES = List.of("SUBMITTED","REVIEWING","INTERVIEW","OFFER","HIRED","REJECTED","WITHDRAWN");
  private User actor(Authentication auth, boolean staff) {
   if(auth==null) throw new BadCredentialsException("Hãy đăng nhập để tiếp tục.");
@@ -44,6 +45,7 @@ public class ApplicationService {
  @Transactional
  public ApplicationDto submit(Authentication auth, SubmitApplicationRequest input) {
   User u=actor(auth,false);
+  if(input.resumeId()!=null || !"ORIGINAL_PDF".equals(input.submissionFormat())) builderPolicy.requireEnabled();
   // Job writers acquire this row before changing related skills/criteria. CV writers lock the profile.
   Job j=jobs.findForApplication(input.jobId()).orElseThrow(()->conflict("Tin không còn nhận hồ sơ."));
   var activeDepartment=jdbc.queryForObject("select is_active from recruitment.departments where id=? for share",Boolean.class,j.getDepartment().getId());
@@ -54,29 +56,52 @@ public class ApplicationService {
    throw conflict("Tin không còn nhận hồ sơ. Hãy chọn công việc khác.");
   if(Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from recruitment.applications where job_id=? and candidate_id=?)",Boolean.class,j.getId(),u.getId())))
    throw conflict("Bạn đã nộp đơn cho công việc này. Hãy xem trong Đơn ứng tuyển.");
-  var r=resumes.findByIdAndCandidate_UserId(input.resumeId(),u.getId())
-   .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy CV của bạn."));
-  if(r.getStatus()!=ResumeStatus.READY) throw conflict("Hãy hoàn tất CV trước khi nộp đơn.");
-  if(r.getVersion()!=input.resumeVersion()) throw conflict("CV vừa thay đổi. Hãy tải lại và xem bản mới trước khi nộp.");
   UUID id=UUID.randomUUID();
   String letter=input.coverLetter()==null || input.coverLetter().isBlank()?null:input.coverLetter().trim();
   String format=input.submissionFormat()==null?"BUILDER":input.submissionFormat();
-  UUID document="ORIGINAL_PDF".equals(format)?r.getSourceDocumentId():null;
-  var resumeContent=mapper.valueToTree(ResumeService.dto(r));
-  if ("ORIGINAL_PDF".equals(format)) {
-   var originals=jdbc.query("select parsed_content::text from candidate.resume_documents where id=? and candidate_id=? and status='PARSED'",(rs,n)->rs.getString(1),document,u.getId());
-   if(originals.isEmpty()) throw conflict("CV này chưa có PDF gốc hợp lệ.");
-   var parsed=mapper.readTree(originals.getFirst());
-   // Score the extraction of the chosen original, never later edits in the builder.
-   for(String field:List.of("fullName","email","phone","location","desiredPosition","summary","githubUrl","linkedinUrl","portfolioUrl","skills","experiences","educations","projects","certifications","languages","awards","activities","extraSections"))
-    ((tools.jackson.databind.node.ObjectNode)resumeContent).set(field,parsed.path(field));
+  if(input.resumeId()==null && (!"ORIGINAL_PDF".equals(format) || input.sourceDocumentId()==null || input.resumeVersion()!=null))
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Hãy chọn CV trên web hoặc PDF riêng.");
+  if(input.resumeId()!=null && (input.resumeVersion()==null || input.sourceDocumentId()!=null))
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Lựa chọn CV không hợp lệ.");
+  var r=input.resumeId()==null?null:resumes.findByIdAndCandidate_UserId(input.resumeId(),u.getId())
+   .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy CV của bạn."));
+  if(r!=null && r.getStatus()!=ResumeStatus.READY) throw conflict("Hãy hoàn tất CV trước khi nộp đơn.");
+  if(r!=null && r.getVersion()!=input.resumeVersion()) throw conflict("CV vừa thay đổi. Hãy tải lại và xem bản mới trước khi nộp.");
+  UUID document="ORIGINAL_PDF".equals(format)?(r==null?input.sourceDocumentId():r.getSourceDocumentId()):null;
+  if(r==null && document==null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Hãy chọn PDF riêng.");
+  var originals=document==null?List.<String>of():jdbc.query("select display_name from candidate.resume_documents where id=? and candidate_id=?",(rs,n)->rs.getString(1),document,u.getId());
+  if(document!=null && originals.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy PDF của bạn.");
+  var resumeContent=r==null?mapper.createObjectNode():mapper.valueToTree(ResumeService.dto(r));
+  if(r==null) {
+   var pdf=(tools.jackson.databind.node.ObjectNode)resumeContent;
+   pdf.put("title",originals.getFirst());pdf.put("fullName",u.getFullName());pdf.put("email",u.getEmail());
+   pdf.put("candidateId",u.getId().toString());pdf.put("sourceDocumentId",document.toString());
+   pdf.put("template","modern");pdf.put("status","READY");pdf.put("isDefault",false);pdf.put("version",0);
+   for(String field:List.of("skills","experiences","educations","projects","certifications","languages","awards","activities","extraSections")) pdf.putArray(field);
+  }
+  if(document!=null) {
+   // Plain original submissions must not wait for a parser's in-flight database write.
+   var reviewed=jdbc.query("select reviewed_content::text,review_version,confirmed_at from candidate.resume_documents where id=? and candidate_id=?"+(input.documentVersion()==null?"":" for share"),
+    (rs,n)->new String[]{rs.getString(1),Long.toString(rs.getLong(2)),rs.getTimestamp(3)==null?null:rs.getTimestamp(3).toInstant().toString()},document,u.getId()).getFirst();
+   // Submission accepts the owned original even if extraction is pending or unavailable.
+   // A supplied version opts into that exact reviewed version; null sends only the original.
+   if(input.documentVersion()!=null && input.documentVersion()!=Long.parseLong(reviewed[1]))
+    throw conflict("Thông tin PDF vừa thay đổi. Hãy tải lại và xem bản đã xác nhận trước khi nộp.");
+   if(input.documentVersion()!=null && reviewed[0]!=null && reviewed[2]!=null) {
+    var source=mapper.readTree(reviewed[0]);
+    var content=(tools.jackson.databind.node.ObjectNode)resumeContent;
+    for(String field:List.of("fullName","email","phone","location","desiredPosition","summary","githubUrl","linkedinUrl","portfolioUrl","skills","experiences","educations","projects","certifications","languages","awards","activities","extraSections"))
+     content.set(field,source.path(field));
+    content.put("pdfConfirmedAt",reviewed[2]);content.put("pdfReviewVersion",Long.parseLong(reviewed[1]));
+    content.set("pdfReviewedContent",source);
+   }
   }
   var jobSnapshot=snapshot(j);
   String contextHash=assessmentContexts.jobHash(mapper.valueToTree(jobSnapshot));
   jdbc.update("insert into recruitment.applications(id,job_id,candidate_id,resume_id,status,cover_letter,job_version,job_snapshot,ai_job_context_hash,version,applied_at,updated_at,submission_format,source_document_id) values(?,?,?,?,'SUBMITTED',?,?,?::jsonb,?,0,?,?,?,?)",
-   id,j.getId(),u.getId(),r.getId(),letter,j.getVersion(),mapper.writeValueAsString(jobSnapshot),contextHash,Timestamp.from(now),Timestamp.from(now),format,document);
+   id,j.getId(),u.getId(),r==null?null:r.getId(),letter,j.getVersion(),mapper.writeValueAsString(jobSnapshot),contextHash,Timestamp.from(now),Timestamp.from(now),format,document);
   jdbc.update("insert into recruitment.application_resume_snapshots(application_id,source_resume_version,schema_version,content,captured_at) values(?,?,1,?::jsonb,?)",
-   id,r.getVersion(),mapper.writeValueAsString(resumeContent),Timestamp.from(now));
+   id,r==null?0:r.getVersion(),mapper.writeValueAsString(resumeContent),Timestamp.from(now));
   jdbc.update("insert into recruitment.application_status_history(id,application_id,to_status,changed_by,created_at) values(?,?,'SUBMITTED',?,?)",UUID.randomUUID(),id,u.getId(),Timestamp.from(now));
   aiTasks.enqueue(id);
   return detail(auth,false,id);

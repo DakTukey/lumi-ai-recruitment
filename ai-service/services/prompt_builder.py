@@ -31,6 +31,7 @@ ngoại ngữ, kinh nghiệm và các loại khác. Trọng số 0 vẫn có nh�
 points là MỨC PHÙ HỢP 0–100%, không phải số điểm trên trọng số.
 match_level: MATCHED, PARTIAL hoặc NO_EVIDENCE.
 NO_EVIDENCE phải có points=0. MATCHED/PARTIAL cần evidence trích NGUYÊN VĂN LIÊN TIẾP từ MỘT giá trị văn bản trong CV, không ghép nhiều mục, không thêm dấu ba chấm, không dịch. NO_EVIDENCE phải có evidence="". Chọn evidence từ các giá trị enum trong schema phản hồi, không gộp trường học/bằng cấp/chuyên ngành thành một câu trích dẫn.
+Với tiêu chí skill:<id>, evidence phải chứa chính tên kỹ năng đang chấm (không phân biệt hoa/thường). Ví dụ chấm Java thì không được dùng riêng "Spring Boot" làm evidence. Ưu tiên câu kinh nghiệm/dự án có tên kỹ năng; nếu CV chỉ liệt kê kỹ năng, trích đúng tên trong danh sách và cho PARTIAL tối đa 40 điểm. Nếu không có trích dẫn phù hợp, dùng NO_EVIDENCE.
 Nếu CV chỉ liệt kê tên kỹ năng, chỉ có bằng chứng tự khai; không suy ra trình độ cao hay kinh nghiệm.
 MATCHED nghĩa là nội dung CV đáp ứng yêu cầu được ghi, PARTIAL là bằng chứng chưa đủ yêu cầu.
 Không suy đoán tuổi, giới tính, sức khỏe, tính cách hay khả năng được tuyển.

@@ -60,7 +60,7 @@ class AssessmentTests(unittest.IsolatedAsyncioTestCase):
         req = request(); data = response(req)
         data['criteria'][1].update(match_level='NO_EVIDENCE', evidence='', points=0)
         result = normalize_result(req, data)
-        self.assertEqual(result.score, 77)  # (80*2 + 0*1 + 80*25.5) / 28.5
+        self.assertEqual(result.score, 74)  # Skill only listed: capped at 40; (40*2 + 0*1 + 80*25.5) / 28.5
         self.assertEqual(result.criteria[2].weight, 25.5)
         self.assertIn('Docker', result.missing_skills)
 
@@ -94,7 +94,7 @@ class AssessmentTests(unittest.IsolatedAsyncioTestCase):
         with patch('services.grounded_generation.upstream.available', return_value=True), \
              patch('services.grounded_generation.upstream.generate', new=AsyncMock(return_value=json.dumps(response(req)))) as generate:
             result = await assess(req)
-            self.assertEqual(result.score, 80)
+            self.assertEqual(result.score, 74)
             self.assertTrue(result.model_name.startswith('groq/'))
             self.assertIn('CV_DATA', generate.call_args.args[1])
 
@@ -113,6 +113,23 @@ class AssessmentTests(unittest.IsolatedAsyncioTestCase):
         req = request(); data = response(req)
         data['criteria'][0].update(match_level='NO_EVIDENCE', points=0)
         with self.assertRaises(ValueError): normalize_result(req, data)
+
+    def test_skill_quote_is_anchored_to_relevant_cv_text(self):
+        req = request()
+        req.resume.experiences = [{'description': 'Built REST APIs with Java and Spring Boot.'}]
+        req.resume.skills.append('Spring Boot')
+        data = response(req)
+        data['criteria'][0]['evidence'] = 'Spring Boot'
+        result = normalize_result(req, data)
+        self.assertEqual(result.criteria[0].evidence, 'Built REST APIs with Java and Spring Boot.')
+        self.assertEqual(result.criteria[0].points, 80)
+
+    def test_skill_list_alone_is_limited_to_partial(self):
+        req = request(); data = response(req)
+        result = normalize_result(req, data)
+        self.assertEqual(result.criteria[0].evidence, 'Java')
+        self.assertEqual(result.criteria[0].match_level, 'PARTIAL')
+        self.assertEqual(result.criteria[0].points, 40)
 
     async def test_invalid_primary_response_uses_validated_fallback(self):
         req = request(); bad = response(req); bad['criteria'][0]['evidence'] = 'INVENTED'

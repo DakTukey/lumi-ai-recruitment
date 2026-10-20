@@ -51,6 +51,9 @@ public class RecruiterJobAiService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dung lượng tệp tối đa 10 MB.");
             }
             filename = file.getOriginalFilename();
+            if (filename == null || !filename.toLowerCase(java.util.Locale.ROOT).matches(".+\\.(pdf|docx|md|txt)$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chọn tài liệu PDF, DOCX, MD hoặc TXT.");
+            }
             try {
                 bytes = file.getBytes();
             } catch (IOException e) {
@@ -60,6 +63,9 @@ public class RecruiterJobAiService {
 
         if ((bytes == null || bytes.length == 0) && (text == null || text.isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn tệp JD hoặc dán nội dung văn bản.");
+        }
+        if (text != null && text.length() > 50000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "JD tối đa 50.000 ký tự.");
         }
 
         ParsedJobDraftDto result = aiServiceClient.parseJd(bytes, filename, text);
@@ -89,9 +95,6 @@ public class RecruiterJobAiService {
                     deptId = d.getId().toString();
                     break;
                 }
-            }
-            if (deptId == null && !activeDepts.isEmpty()) {
-                deptId = activeDepts.get(0).getId().toString();
             }
         }
         return new ParsedJobDraftDto(

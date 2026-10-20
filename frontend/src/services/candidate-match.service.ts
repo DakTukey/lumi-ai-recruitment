@@ -12,23 +12,24 @@ export type CandidateMatchResponse = CandidateJobMatch & {
 
 export async function getCachedJobMatch(
   jobId: string,
-  resumeId: string,
+  documentId: string,
 ): Promise<CandidateJobMatch | null> {
   const res = await get<CandidateJobMatch | null>(
-    `/candidate/jobs/${encodeURIComponent(jobId)}/match?resumeId=${encodeURIComponent(resumeId)}`,
+    `/candidate/jobs/${encodeURIComponent(jobId)}/match/pdf?documentId=${encodeURIComponent(documentId)}`,
   )
   return res.data ?? null
 }
 
 export async function analyzeJobMatch(
   jobId: string,
-  resumeId: string,
+  documentId: string,
+  documentVersion: number,
   force = false,
 ): Promise<CandidateJobMatch> {
   const res = await post<CandidateJobMatch>(
-    `/candidate/jobs/${encodeURIComponent(jobId)}/match`,
-    { resumeId, force },
-    { timeoutMs: 65000 },
+    `/candidate/jobs/${encodeURIComponent(jobId)}/match/pdf`,
+    { documentId, documentVersion, force },
+    { timeoutMs: 285000 },
   )
   return res.data
 }

@@ -9,6 +9,10 @@ import java.util.UUID;
 @RequestMapping("/api/candidate/jobs/{jobId}/benchmark")
 public class CandidateBenchmarkController {
     private final CandidateBenchmarkService service;
+    @GetMapping("/pdf") public ApiResponse<CandidateBenchmarkDto> comparePdf(Authentication auth,@PathVariable UUID jobId,@RequestParam UUID documentId,jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control","no-store");
+        return ApiResponse.ok("So sánh CV PDF với nhóm hồ sơ.",service.comparePdf(auth,jobId,documentId));
+    }
     @GetMapping public ApiResponse<CandidateBenchmarkDto> compare(Authentication auth,@PathVariable UUID jobId,@RequestParam UUID resumeId,jakarta.servlet.http.HttpServletResponse response) {
         response.setHeader("Cache-Control","no-store");
         return ApiResponse.ok("So sánh CV với mặt bằng hồ sơ đã phân tích.",service.compare(auth,jobId,resumeId));

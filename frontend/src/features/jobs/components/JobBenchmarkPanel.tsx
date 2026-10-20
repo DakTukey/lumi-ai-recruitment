@@ -9,11 +9,11 @@ import '../styles/candidate-benchmark.css'
 
 export function JobBenchmarkPanel({
   jobId,
-  resumeId,
+  documentId,
   enabled,
 }: {
   jobId: string
-  resumeId: string
+  documentId: string
   enabled: boolean
 }) {
   const [result, setResult] = useState<{ data?: CandidateBenchmark; error?: string } | null>(null)
@@ -26,7 +26,7 @@ export function JobBenchmarkPanel({
       if (inFlight || document.visibilityState === 'hidden') return
       inFlight = true
       try {
-        const data = await getCandidateBenchmark(jobId, resumeId)
+        const data = await getCandidateBenchmark(jobId, documentId)
         if (active) setResult({ data })
       } catch (error) {
         if (active)
@@ -45,7 +45,7 @@ export function JobBenchmarkPanel({
       active = false
       clearInterval(timer)
     }
-  }, [jobId, resumeId, enabled, refresh])
+  }, [jobId, documentId, enabled, refresh])
   const data = result?.data
   const priorities = data ? benchmarkPriorities(data.criteria) : []
   return (
@@ -193,7 +193,7 @@ export function JobBenchmarkPanel({
                           : 'Mức đáp ứng ghi nhận còn dưới trung vị nhóm. Hãy làm rõ phạm vi và kết quả thực tế, hoặc thực hành thêm nếu chưa có trải nghiệm.'}
                       </p>
                     ))}
-                    <Link to={improveCvPath(jobId, resumeId)}>
+                    <Link to={improveCvPath(jobId, documentId)}>
                       Cải thiện CV cho vị trí này
                       <ArrowUpRight size={15} />
                     </Link>

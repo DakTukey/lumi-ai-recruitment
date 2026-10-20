@@ -59,6 +59,11 @@ class LoginFlowTest {
     private volatile java.util.concurrent.CountDownLatch matchRelease;
     private final java.util.concurrent.atomic.AtomicInteger parseCalls = new java.util.concurrent.atomic.AtomicInteger();
     private volatile boolean parseFails;
+    private final java.util.concurrent.atomic.AtomicInteger clarificationCalls = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile String clarificationMode = "ok";
+    private volatile JsonNode lastClarificationRequest;
+    private volatile java.util.concurrent.CountDownLatch clarificationEntered;
+    private volatile java.util.concurrent.CountDownLatch clarificationRelease;
     private CookieManager cookies;
     private HttpClient client;
 
@@ -77,6 +82,7 @@ class LoginFlowTest {
             parseCalls.incrementAndGet(); exchange.getRequestBody().readAllBytes();
             var result = resumePayload("Original PDF", "DRAFT");
             result.put("summary", "Original PDF evidence");
+            result.put("sources",java.util.List.of(Map.of("path","summary","quote","Original PDF evidence","page",1,"verified",true)));
             result.put("extraSections", java.util.List.of(Map.of("title", "Research", "content", "Paper in 2023")));
             result.put("warnings", java.util.List.of("Check source")); result.put("pageCount", 1); result.put("extractedText", "Page 1: Original PDF evidence");
             byte[] output = mapper.writeValueAsString(result).getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -175,9 +181,36 @@ class LoginFlowTest {
             } catch (Exception ignored) { /* Timeout client deliberately disconnects. */ }
             finally { exchange.close(); }
         });
+        aiStub.createContext("/api/jobs/parse-jd", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] bytes = mapper.writeValueAsString(Map.of("title", "Imported Java JD", "level", "", "mode", "",
+                "location", "", "headcount", "", "suggestedDepartment", "Unknown Department Fixture",
+                "skills", java.util.List.of(Map.of("name", "Java", "required", true)),
+                "criteria", java.util.List.of(Map.of("id", "crit-1", "type", "EXPERIENCE", "description", "Java", "required", true, "weight", 0))))
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes); exchange.close();
+        });
+        aiStub.createContext("/api/application-clarifications", exchange -> {
+            clarificationCalls.incrementAndGet();
+            var input=mapper.readTree(new String(exchange.getRequestBody().readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+            lastClarificationRequest=input;
+            if(clarificationMode.equals("hold")) {
+                clarificationEntered.countDown();
+                try {clarificationRelease.await(3,java.util.concurrent.TimeUnit.SECONDS);} catch(InterruptedException e) {Thread.currentThread().interrupt();}
+            }
+            var questions=new java.util.ArrayList<Map<String,String>>();
+            for(var target:input.path("targets")) questions.add(Map.of("criterion_key",clarificationMode.equals("invalid")?"invented":target.path("criterion_key").asText(),
+                "question","Bạn có thể chia sẻ vai trò và kết quả một dự án liên quan đến "+target.path("requirement").asText()+" không?"));
+            byte[] bytes=mapper.writeValueAsBytes(Map.of("questions",questions,"model_name","test-model","prompt_version","clarifications-v1"));
+            exchange.getResponseHeaders().set("Content-Type","application/json");
+            exchange.sendResponseHeaders(clarificationMode.equals("unavailable")?503:200,bytes.length);
+            exchange.getResponseBody().write(bytes);exchange.close();
+        });
         aiStub.start();
         context = new SpringApplicationBuilder(RecruitmentBackendApplication.class, AccessProbe.class)
-                .run("--server.port=0", "--app.ai-analysis.worker-enabled=false", "--app.ai-service.url=http://127.0.0.1:"+aiStub.getAddress().getPort(),
+                .run("--server.port=0", "--app.cv-builder.enabled=true", "--app.ai-analysis.worker-enabled=false", "--app.ai-service.url=http://127.0.0.1:"+aiStub.getAddress().getPort(),
                         "--app.ai-service.timeout-seconds=1", "--spring.datasource.url=" + databaseUrl,
                         "--spring.datasource.username=" + username, "--spring.datasource.password=" + password,
                         "--spring.jpa.show-sql=false", "--logging.level.org.hibernate.SQL=OFF");
@@ -1333,13 +1366,13 @@ class LoginFlowTest {
             boolean absent=mode.equals("missing-docker") && group.equals("skills") && t.path("name").asText().equals("Docker");
             int points=absent?0:80;
             entries.add(Map.of("criterion_key",(group.equals("skills")?"skill:":"criterion:")+t.path("id").asText(),
-                "skill",t.path(group.equals("skills")?"name":"description").asText(),"match_level",absent?"NO_EVIDENCE":"PARTIAL",
+                "skill",t.path(group.equals("skills")?"name":"description").asText(),"match_level",absent?"NO_EVIDENCE":mode.equals("all-matched")?"MATCHED":"PARTIAL",
                 "evidence",absent?"":mode.equals("match-bad-evidence")?"Invented quote":"Java","reason","Cần trao đổi thêm", "points",mode.equals("bad")?999:points,"weight",weight));
             weightTotal=weightTotal.add(weight);sum=sum.add(weight.multiply(java.math.BigDecimal.valueOf(points)));
         }
         int score=weightTotal.signum()==0?0:sum.divide(weightTotal,0,java.math.RoundingMode.HALF_UP).intValue();
         return Map.of("application_id",input.path("application_id").asText(),"model_name","test-model",
-            "prompt_version","v3","score",score,"summary","Kết quả kiểm thử Java REST API",
+            "prompt_version","v4","score",score,"summary","Kết quả kiểm thử Java REST API",
             "matched_skills",java.util.List.of("Java"),"missing_skills",java.util.List.of("Docker"),"criteria",entries,
             "gaps",java.util.List.of(Map.of("skill","Docker","current_level","Chưa đủ bằng chứng","target_level","Theo JD","roadmap","Thực hành container")),
             "interview_questions",java.util.List.of(Map.of("question","Bạn xử lý transaction thế nào?","reason","Làm rõ kinh nghiệm","target_skill","Java")));
@@ -1426,6 +1459,33 @@ class LoginFlowTest {
         for(var item:list) assertEquals(item.path("id").asText().equals(job)?2:0,item.path("applicationCount").asLong());
     }
 
+    private HttpResponse<String> importJdText(String text, boolean withCsrf) throws Exception {
+        String boundary="JdImportTestBoundary";
+        String body="--"+boundary+"\r\nContent-Disposition: form-data; name=\"text\"\r\n\r\n"+text+"\r\n--"+boundary+"--\r\n";
+        var request=HttpRequest.newBuilder(URI.create(baseUrl+"/api/recruiter/jobs/ai-parse-jd"))
+            .header("Content-Type","multipart/form-data; boundary="+boundary);
+        if(withCsrf) {var token=csrf();request.header(token.header(),token.value());}
+        return client.send(request.POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());
+    }
+    @Test void importedJdIsReviewableWithoutSavingOrInventingMissingFieldsAndRequiresStaffCsrf() throws Exception {
+        loginStaff("candidate");
+        assertEquals(403,importJdText("Backend developer using Java",true).statusCode());
+        loginStaff("recruiter");
+        assertEquals(403,importJdText("Backend developer using Java",false).statusCode());
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        long before=jdbc.queryForObject("select count(*) from recruitment.jobs",Long.class);
+        var response=importJdText("Backend developer using Java",true);
+        assertEquals(200,response.statusCode(),response.body());
+        var result=mapper.readTree(response.body()).path("data");
+        assertEquals("Imported Java JD",result.path("title").asText());
+        assertEquals("",result.path("level").asText());
+        assertEquals("",result.path("location").asText());
+        assertTrue(result.path("departmentId").isNull());
+        assertEquals(0,result.at("/criteria/0/weight").asDouble());
+        assertEquals(before,jdbc.queryForObject("select count(*) from recruitment.jobs",Long.class));
+        assertEquals(400,importJdText("x".repeat(50001),true).statusCode());
+    }
+
     private HttpResponse<String> uploadPdf(byte[] bytes, boolean withCsrf) throws Exception {
         String boundary="PdfTestBoundary";
         var buffer=new java.io.ByteArrayOutputStream();
@@ -1461,6 +1521,12 @@ class LoginFlowTest {
         assertEquals(404,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
         assertEquals(404,post("/api/candidate/resumes",body,csrf()).statusCode());
     }
+    private JsonNode confirmPdf(String id) throws Exception {
+        var document=mapper.readTree(get("/api/candidate/cv-documents/"+id).body()).path("data");
+        var response=sendResume("PUT","/api/candidate/cv-documents/"+id+"/review",Map.of("content",document.path("parsed"),"version",document.path("reviewVersion").asLong(),"confirm",true),true);
+        assertEquals(200,response.statusCode(),response.body());
+        return mapper.readTree(response.body()).path("data");
+    }
     @Test void pdfSubmissionPinsOriginalAndScoresItsExtractionInsteadOfBuilderEdits() throws Exception {
         String job=applicationJob();
         var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
@@ -1470,6 +1536,7 @@ class LoginFlowTest {
         var saved=post("/api/candidate/resumes",body,csrf());assertEquals(201,saved.statusCode(),saved.body());
         var cv=mapper.readTree(saved.body()).path("data");
         var input=new java.util.HashMap<String,Object>(applicationInput(job,cv));input.put("submissionFormat","ORIGINAL_PDF");
+        input.put("documentVersion",confirmPdf(doc).path("reviewVersion").asLong());
         var response=post("/api/candidate/applications",input,csrf());assertEquals(201,response.statusCode(),response.body());
         var app=mapper.readTree(response.body()).path("data");String appId=app.path("id").asText();
         assertEquals("ORIGINAL_PDF",app.path("submissionFormat").asText());assertEquals(doc,app.path("sourceDocumentId").asText());
@@ -1484,6 +1551,200 @@ class LoginFlowTest {
         assertEquals(403,get("/api/candidate/cv-documents/"+doc+"/file").statusCode());
         assertEquals(404,get("/api/recruiter/applications/"+UUID.randomUUID()+"/cv-file").statusCode());
     }
+    @Test void standalonePdfPinsOptionalConfirmedDataForHrAndAssessment() throws Exception {
+        String job=applicationJob();
+        var upload=uploadPdf(("%PDF-1.7\nstandalone "+UUID.randomUUID()).getBytes(),true);
+        assertEquals(200,upload.statusCode(),upload.body());
+        String doc=mapper.readTree(upload.body()).at("/data/id").asText();
+        int before=parseCalls.get();
+        assertEquals(0,mapper.readTree(get("/api/candidate/resumes").body()).path("data").size());
+        assertEquals(403,sendResume("PUT","/api/candidate/cv-documents/"+doc+"/name",Map.of("title","CV riêng Backend"),false).statusCode());
+        var renamed=sendResume("PUT","/api/candidate/cv-documents/"+doc+"/name",Map.of("title","CV riêng Backend"),true);
+        assertEquals(200,renamed.statusCode(),renamed.body());
+        assertEquals("CV riêng Backend",mapper.readTree(renamed.body()).at("/data/title").asText());
+        var preferred=sendResume("PUT","/api/candidate/cv-documents/"+doc+"/default",Map.of(),true);
+        assertEquals(200,preferred.statusCode(),preferred.body());
+        assertTrue(mapper.readTree(preferred.body()).at("/data/isDefault").asBoolean());
+        var web=mapper.readTree(post("/api/candidate/resumes",resumePayload("Web CV","READY"),csrf()).body()).path("data");
+        var webDefault=sendResume("PUT","/api/candidate/resumes/"+web.path("id").asText()+"/default",Map.of("version",web.path("version").asLong()),true);
+        assertEquals(200,webDefault.statusCode(),webDefault.body());
+        assertFalse(mapper.readTree(get("/api/candidate/cv-documents/"+doc).body()).at("/data/isDefault").asBoolean());
+        assertEquals(200,sendResume("PUT","/api/candidate/cv-documents/"+doc+"/default",Map.of(),true).statusCode());
+        assertFalse(mapper.readTree(get("/api/candidate/resumes").body()).at("/data/0/isDefault").asBoolean());
+        var input=Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF");
+        assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+        var confirmed=confirmPdf(doc);
+        var staleInput=new java.util.HashMap<String,Object>(input);staleInput.put("documentVersion",confirmed.path("reviewVersion").asLong()-1);
+        assertEquals(409,post("/api/candidate/applications",staleInput,csrf()).statusCode());
+        var reviewedInput=new java.util.HashMap<String,Object>(input);reviewedInput.put("documentVersion",confirmed.path("reviewVersion").asLong());
+        var submitted=post("/api/candidate/applications",reviewedInput,csrf());
+        assertEquals(201,submitted.statusCode(),submitted.body());
+        var app=mapper.readTree(submitted.body()).path("data");String appId=app.path("id").asText();
+        assertTrue(app.path("resumeId").isNull());
+        assertEquals(doc,app.path("sourceDocumentId").asText());
+        assertEquals("CV riêng Backend",app.at("/resumeSnapshot/title").asText());
+        assertEquals(before+1,parseCalls.get());
+        var changed=(tools.jackson.databind.node.ObjectNode)confirmed.path("reviewed").deepCopy();
+        changed.put("summary","Changed after submission");
+        var updated=sendResume("PUT","/api/candidate/cv-documents/"+doc+"/review",Map.of("content",changed,"version",confirmed.path("reviewVersion").asLong(),"confirm",true),true);
+        assertEquals(200,updated.statusCode(),updated.body());
+        assertEquals("PENDING",ownAiStatus(appId).path("state").asText());
+        var task=claimOnly(appId);
+        context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(task);
+        assertEquals(before+1,parseCalls.get());
+        assertEquals("PARSED",mapper.readTree(get("/api/candidate/cv-documents/"+doc).body()).at("/data/status").asText());
+        assertEquals("COMPLETED",ownAiStatus(appId).path("state").asText());
+        assertTrue(lastAiRequest.path("resume").toString().contains("Original PDF evidence"));
+        assertFalse(lastAiRequest.path("resume").toString().contains("Changed after submission"));
+        newBrowserSession();registerResumeOwner();
+        assertEquals(404,post("/api/candidate/applications",Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF"),csrf()).statusCode());
+        assertEquals(403,get("/api/recruiter/applications/"+appId+"/cv-extraction").statusCode());
+        newBrowserSession();loginStaff("recruiter");
+        assertEquals(200,get("/api/recruiter/applications/"+appId+"/cv-file").statusCode());
+        var extracted=get("/api/recruiter/applications/"+appId+"/cv-extraction");
+        assertEquals(200,extracted.statusCode(),extracted.body());
+        assertEquals("Original PDF evidence",mapper.readTree(extracted.body()).at("/data/parsed/summary").asText());
+        assertEquals(200,get("/api/recruiter/applications/"+appId).statusCode());
+        assertEquals(403,get("/api/candidate/cv-documents/"+doc+"/file").statusCode());
+    }
+    @Test void standalonePdfSubmitsDuringAiOutageThenAddsAnalysisWithoutChangingSubmittedSnapshot() throws Exception {
+        String job=applicationJob();
+        var upload=uploadPdf(("%PDF-1.7\nunavailable "+UUID.randomUUID()).getBytes(),true);
+        String doc=mapper.readTree(upload.body()).at("/data/id").asText();
+        var input=Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF");
+        var before=parseCalls.get();
+        assertEquals(403,post("/api/candidate/applications",input,null).statusCode());
+        var tasks=context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class);
+        String application;
+        JsonNode snapshot;
+        try {
+            parseFails=true;
+            var submitted=post("/api/candidate/applications",input,csrf());
+            assertEquals(201,submitted.statusCode(),submitted.body());
+            snapshot=mapper.readTree(submitted.body()).path("data");application=snapshot.path("id").asText();
+            assertEquals(before,parseCalls.get());
+            assertEquals("PENDING",ownAiStatus(application).path("state").asText());
+            assertTrue(ownAiStatus(application).path("score").isNull());
+            assertEquals(403,get("/api/recruiter/applications/"+application+"/ai-status").statusCode());
+            tasks.process(claimOnly(application));
+            assertEquals("PENDING",ownAiStatus(application).path("state").asText());
+            assertTrue(ownAiStatus(application).path("score").isNull());
+            assertEquals(0,mapper.readTree(get("/api/candidate/cv-documents/"+doc).body()).at("/data/attempts").asInt());
+            assertEquals(snapshot,mapper.readTree(get("/api/candidate/applications/"+application).body()).path("data"));
+            assertEquals(200,get("/api/candidate/cv-documents/"+doc+"/file").statusCode());
+            newBrowserSession();loginStaff("recruiter");
+            assertEquals(200,get("/api/recruiter/applications/"+application+"/cv-file").statusCode());
+            assertEquals("PENDING",mapper.readTree(get("/api/recruiter/applications/"+application+"/ai-status").body()).at("/data/state").asText());
+            assertTrue(mapper.readTree(get("/api/recruiter/applications/"+application+"/cv-extraction").body()).at("/data/parsed").isNull());
+            var moved=post("/api/recruiter/applications/"+application+"/status",Map.of("status","REVIEWING","version",0),csrf());
+            assertEquals(200,moved.statusCode(),moved.body());
+        }
+        finally {parseFails=false;}
+        tasks.process(claimOnly(application));
+        var progress=get("/api/recruiter/applications/"+application+"/ai-status");
+        assertEquals(200,progress.statusCode(),progress.body());
+        assertEquals("no-store",progress.headers().firstValue("Cache-Control").orElse(""));
+        assertEquals("COMPLETED",mapper.readTree(progress.body()).at("/data/state").asText());
+        assertEquals("REVIEWING",mapper.readTree(get("/api/recruiter/applications/"+application).body()).at("/data/status").asText());
+        assertEquals(snapshot.path("resumeSnapshot"),mapper.readTree(get("/api/recruiter/applications/"+application).body()).at("/data/resumeSnapshot"));
+        var extracted=mapper.readTree(get("/api/recruiter/applications/"+application+"/cv-extraction").body()).path("data");
+        assertEquals("Original PDF evidence",extracted.at("/parsed/summary").asText());
+        assertTrue(extracted.path("confirmedAt").isNull());
+        assertEquals(403,get("/api/candidate/applications/"+application+"/ai-status").statusCode());
+        newBrowserSession();registerResumeOwner();
+        assertEquals(404,get("/api/candidate/applications/"+application+"/ai-status").statusCode());
+        assertEquals(404,post("/api/candidate/applications",input,csrf()).statusCode());
+        newBrowserSession();loginStaff("recruiter");
+        assertEquals(404,get("/api/recruiter/applications/"+UUID.randomUUID()+"/ai-status").statusCode());
+    }
+    @Test void pdfOnlySubmissionsAcceptEveryExtractionStateWithoutWaitingForAi() throws Exception {
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=false").applyTo(context);
+        try {
+            for(String state:java.util.List.of("UPLOADED","PROCESSING","FAILED","PARSED")) {
+                String job=applicationJob();
+                String doc=mapper.readTree(uploadPdf(("%PDF-1.7\nstate "+state+UUID.randomUUID()).getBytes(),true).body()).at("/data/id").asText();
+                if("PARSED".equals(state)) assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+                else jdbc.update("update candidate.resume_documents set status=? where id=?::uuid",state,doc);
+                int before=parseCalls.get();
+                var response=post("/api/candidate/applications",Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF"),csrf());
+                assertEquals(201,response.statusCode(),response.body());
+                assertEquals(before,parseCalls.get());
+                var submitted=mapper.readTree(response.body()).path("data");
+                assertTrue(submitted.at("/resumeSnapshot/skills").isEmpty());
+                assertEquals(409,post("/api/candidate/applications",Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF"),csrf()).statusCode());
+                if("PARSED".equals(state)) {
+                    var confirmed=confirmPdf(doc);
+                    var changed=(tools.jackson.databind.node.ObjectNode)confirmed.path("reviewed").deepCopy();
+                    changed.put("summary","Candidate changed this after submitting the original");
+                    assertEquals(200,sendResume("PUT","/api/candidate/cv-documents/"+doc+"/review",Map.of("content",changed,"version",confirmed.path("reviewVersion").asLong(),"confirm",true),true).statusCode());
+                    String application=submitted.path("id").asText();
+                    context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(application));
+                    assertEquals("COMPLETED",ownAiStatus(application).path("state").asText());
+                    assertEquals(before,parseCalls.get());
+                    assertTrue(lastAiRequest.path("resume").toString().contains("Original PDF evidence"));
+                    assertFalse(lastAiRequest.path("resume").toString().contains("Candidate changed"));
+                    assertEquals(submitted,mapper.readTree(get("/api/candidate/applications/"+application).body()).path("data"));
+                    newBrowserSession();loginStaff("recruiter");
+                    assertTrue(mapper.readTree(get("/api/recruiter/applications/"+application+"/cv-extraction").body()).at("/data/confirmedAt").isNull());
+                }
+            }
+        } finally {org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=true").applyTo(context);}
+    }
+    @Test void originalPdfSubmissionDoesNotWaitForAnInFlightParserWrite() throws Exception {
+        String job=applicationJob();
+        String doc=mapper.readTree(uploadPdf(("%PDF-1.7\nin flight "+UUID.randomUUID()).getBytes(),true).body()).at("/data/id").asText();
+        var input=Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF");
+        var token=csrf();
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        try(var connection=jdbc.getDataSource().getConnection()) {
+            connection.setAutoCommit(false);
+            try(var statement=connection.prepareStatement("update candidate.resume_documents set status='PROCESSING' where id=?::uuid")) {
+                statement.setString(1,doc);statement.executeUpdate();
+                try {
+                    var request=HttpRequest.newBuilder(URI.create(baseUrl+"/api/candidate/applications"))
+                        .header("Content-Type","application/json").header(token.header(),token.value())
+                        .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(input))).build();
+                    var response=client.sendAsync(request,HttpResponse.BodyHandlers.ofString()).get(2,java.util.concurrent.TimeUnit.SECONDS);
+                    assertEquals(201,response.statusCode(),response.body());
+                    assertEquals("PENDING",ownAiStatus(mapper.readTree(response.body()).at("/data/id").asText()).path("state").asText());
+                } finally {connection.rollback();}
+            }
+        }
+    }
+    @Test void pdfReviewValidatesCorrectionsProtectsEvidenceAndRequiresOwnerCsrfAndCurrentVersion() throws Exception {
+        registerResumeOwner();
+        String doc=mapper.readTree(uploadPdf(("%PDF-1.7\nreview "+UUID.randomUUID()).getBytes(),true).body()).at("/data/id").asText();
+        assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+        var document=mapper.readTree(get("/api/candidate/cv-documents/"+doc).body()).path("data");
+        var content=(tools.jackson.databind.node.ObjectNode)document.path("parsed").deepCopy();content.put("email","wrong email");
+        var input=new java.util.HashMap<String,Object>();input.put("version",0);input.put("confirm",true);input.put("content",content);
+        String path="/api/candidate/cv-documents/"+doc+"/review";
+        assertEquals(403,sendResume("PUT",path,input,false).statusCode());
+        assertEquals(422,sendResume("PUT",path,input,true).statusCode());
+        input.put("confirm",false);
+        var draft=sendResume("PUT",path,input,true);assertEquals(200,draft.statusCode(),draft.body());
+        assertTrue(mapper.readTree(draft.body()).at("/data/confirmedAt").isNull());
+        assertFalse(mapper.readTree(draft.body()).at("/data/issues").isEmpty());
+        input.put("confirm",true);assertEquals(409,sendResume("PUT",path,input,true).statusCode());
+        input.put("version",1);content.put("email","correct@example.test");
+        content.set("experiences",mapper.valueToTree(java.util.List.of(Map.of("company","ABC","position","Developer","startDate","2025-01","endDate","2024-01","current",false,"description","Build API"))));
+        assertEquals(422,sendResume("PUT",path,input,true).statusCode());
+        content.set("experiences",document.at("/parsed/experiences"));
+        content.put("extractedText","forged text");content.set("sources",mapper.valueToTree(java.util.List.of(Map.of("path","email","page",1,"quote","forged","verified",true))));
+        var confirmed=sendResume("PUT",path,input,true);assertEquals(200,confirmed.statusCode(),confirmed.body());
+        var saved=mapper.readTree(confirmed.body()).path("data");
+        assertFalse(saved.path("confirmedAt").isNull());assertEquals("correct@example.test",saved.at("/reviewed/email").asText());
+        assertEquals(document.at("/parsed/extractedText"),saved.at("/reviewed/extractedText"));
+        assertEquals(document.at("/parsed/sources"),saved.at("/reviewed/sources"));
+        assertEquals("cv@example.test",saved.at("/parsed/email").asText());
+        input.put("version",2);input.put("confirm",false);
+        var unconfirmed=sendResume("PUT",path,input,true);assertEquals(200,unconfirmed.statusCode(),unconfirmed.body());
+        assertTrue(mapper.readTree(unconfirmed.body()).at("/data/confirmedAt").isNull());
+        newBrowserSession();registerResumeOwner();assertEquals(404,sendResume("PUT",path,input,true).statusCode());
+        newBrowserSession();loginStaff("recruiter");assertEquals(403,sendResume("PUT",path,input,true).statusCode());
+    }
+
     @Test void pdfParserFailureKeepsOriginalAndDoesNotAttachUnparsedDocument() throws Exception {
         registerResumeOwner();var upload=uploadPdf(("%PDF-1.7\nfixture "+UUID.randomUUID()).getBytes(),true);
         String id=mapper.readTree(upload.body()).at("/data/id").asText();
@@ -1492,7 +1753,7 @@ class LoginFlowTest {
         assertEquals(200,get("/api/candidate/cv-documents/"+id+"/file").statusCode());
         var cv=resumePayload("Unparsed","DRAFT");cv.put("sourceDocumentId",id);
         assertEquals(404,post("/api/candidate/resumes",cv,csrf()).statusCode());
-        assertEquals(409,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
+        assertEquals(200,post("/api/candidate/cv-documents/"+id+"/parse",Map.of(),csrf()).statusCode());
     }
 
     private String applicationJob() throws Exception {
@@ -1858,6 +2119,62 @@ class LoginFlowTest {
         } finally { summaryRelease.countDown(); summaryMode = "ok"; }
     }
 
+    @Test void pdfOnlyRetirementClosesWritesAndKeepsHistoricalCvAndApplicationReadable() throws Exception {
+        String job=applicationJob();var cv=applicationResume("READY");
+        var submitted=post("/api/candidate/applications",applicationInput(job,cv),csrf());
+        assertEquals(201,submitted.statusCode(),submitted.body());
+        String application=mapper.readTree(submitted.body()).at("/data/id").asText();
+        org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=false").applyTo(context);
+        try {
+            assertEquals(200,get("/api/candidate/resumes/"+cv.path("id").asText()).statusCode());
+            assertEquals(200,get("/api/candidate/applications/"+application).statusCode());
+            assertEquals(410,post("/api/candidate/resumes",resumePayload("Retired","READY"),csrf()).statusCode());
+            var edit=resumePayload("Retired edit","READY");edit.put("version",cv.path("version").asLong());
+            assertEquals(410,sendResume("PUT","/api/candidate/resumes/"+cv.path("id").asText(),edit,true).statusCode());
+            assertEquals(410,post("/api/candidate/cv-writing",Map.of("section","summary","action","polish","text","Java","context","Backend"),csrf()).statusCode());
+            assertEquals(410,post("/api/candidate/jobs/"+job+"/match",Map.of("resumeId",cv.path("id").asText()),csrf()).statusCode());
+            assertEquals(410,post("/api/candidate/applications",applicationInput(job,cv),csrf()).statusCode());
+            newBrowserSession();loginStaff("recruiter");
+            assertEquals(200,get("/api/recruiter/applications/"+application).statusCode());
+        } finally {org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=true").applyTo(context);}
+    }
+    @Test void pdfMatchRequiresConfirmedOwnedVersionInvalidatesAndReusesForSubmittedAssessment() throws Exception {
+        String job=applicationJob();
+        String doc=mapper.readTree(uploadPdf(("%PDF-1.7\nPDF only "+UUID.randomUUID()).getBytes(),true).body()).at("/data/id").asText();
+        String path="/api/candidate/jobs/"+job+"/match/pdf";
+        assertEquals(409,post(path,Map.of("documentId",doc,"documentVersion",0),csrf()).statusCode());
+        assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+        assertEquals(409,get(path+"?documentId="+doc).statusCode());
+        var confirmed=confirmPdf(doc);long version=confirmed.path("reviewVersion").asLong();
+        aiMode="match-ok";aiCalls.set(0);
+        org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=false").applyTo(context);
+        try {
+            assertEquals(403,post(path,Map.of("documentId",doc,"documentVersion",version),null).statusCode());
+            assertEquals(409,post(path,Map.of("documentId",doc,"documentVersion",version-1),csrf()).statusCode());
+            var response=post(path,Map.of("documentId",doc,"documentVersion",version),csrf());
+            assertEquals(200,response.statusCode(),response.body());
+            var match=mapper.readTree(response.body()).path("data");
+            assertTrue(match.path("resumeId").isNull());assertEquals(doc,match.path("sourceDocumentId").asText());
+            assertEquals(version,match.path("documentVersion").asLong());assertEquals(80,match.path("score").asInt());
+            for(String key:java.util.List.of("fullName","email","phone","warnings","extractedText","sources"))
+                assertTrue(lastAiRequest.path("resume").path(key).isMissingNode(),key);
+            assertEquals(200,post(path,Map.of("documentId",doc,"documentVersion",version),csrf()).statusCode());assertEquals(1,aiCalls.get());
+            assertEquals(200,get("/api/candidate/jobs/"+job+"/benchmark/pdf?documentId="+doc).statusCode());
+            var content=(tools.jackson.databind.node.ObjectNode)confirmed.path("reviewed").deepCopy();content.put("summary","Original PDF evidence plus Java");
+            var updated=sendResume("PUT","/api/candidate/cv-documents/"+doc+"/review",Map.of("content",content,"version",version,"confirm",true),true);
+            assertEquals(200,updated.statusCode(),updated.body());version++;
+            assertTrue(mapper.readTree(get(path+"?documentId="+doc).body()).path("data").isNull());
+            assertEquals(200,post(path,Map.of("documentId",doc,"documentVersion",version),csrf()).statusCode());assertEquals(2,aiCalls.get());
+            var applied=post("/api/candidate/applications",Map.of("jobId",job,"sourceDocumentId",doc,"submissionFormat","ORIGINAL_PDF","documentVersion",version),csrf());
+            assertEquals(201,applied.statusCode(),applied.body());
+            String application=mapper.readTree(applied.body()).at("/data/id").asText();
+            context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(application));
+            assertEquals("COMPLETED",ownAiStatus(application).path("state").asText());assertEquals(2,aiCalls.get());
+            newBrowserSession();registerResumeOwner();
+            assertEquals(404,get(path+"?documentId="+doc).statusCode());
+            assertEquals(404,post(path,Map.of("documentId",doc,"documentVersion",version),csrf()).statusCode());
+        } finally {aiMode="ok";org.springframework.boot.test.util.TestPropertyValues.of("app.cv-builder.enabled=true").applyTo(context);}
+    }
     @Test void candidateMatchPersistsCacheWithoutApplyingAndOmitsContactData() throws Exception {
         String job=applicationJob();var cv=applicationResume("READY");String path="/api/candidate/jobs/"+job+"/match";
         cv=mapper.readTree(get("/api/candidate/resumes/"+cv.path("id").asText()).body()).path("data");
@@ -1865,7 +2182,7 @@ class LoginFlowTest {
         assertTrue(mapper.readTree(get(path+"?resumeId="+cv.path("id").asText()).body()).path("data").isNull());
         var response=post(path,Map.of("resumeId",cv.path("id").asText()),csrf());assertEquals(200,response.statusCode(),response.body());
         var match=mapper.readTree(response.body()).path("data");assertEquals(80,match.path("score").asInt());
-        assertEquals(3,match.path("criteria").size());assertEquals("candidate-match-v4",match.path("promptVersion").asText());
+        assertEquals(3,match.path("criteria").size());assertEquals("candidate-match-v5",match.path("promptVersion").asText());
         assertEquals("test-model",match.path("modelName").asText());assertFalse(match.at("/criteria/0/jobEvidence").asText().isBlank());
         assertEquals("CV · Kỹ năng tự khai",match.at("/criteria/0/source").asText());
         for(String field:java.util.List.of("email","phone","fullName","linkedinUrl")) assertTrue(lastAiRequest.path("resume").path(field).isMissingNode());
@@ -1993,7 +2310,7 @@ class LoginFlowTest {
         String id=submittedApplication();aiMode="concurrent";aiCalls.set(0);
         var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
         jdbc.update("update recruitment.ai_analysis_tasks set next_attempt_at='infinity' where status='PENDING' and application_id<>?::uuid",id);
-        var worker=new com.lumi.recruitment.service.AiAnalysisWorker(context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class));
+        var worker=new com.lumi.recruitment.service.AiAnalysisWorker(context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class),1);
         try {
             worker.dispatch();worker.dispatch();
             for(int i=0;i<150 && !"COMPLETED".equals(ownAiStatus(id).path("state").asText());i++) Thread.sleep(20);
@@ -2115,6 +2432,137 @@ class LoginFlowTest {
     private String sessionId() {
         return cookies.getCookieStore().getCookies().stream().filter(cookie -> cookie.getName().equals("JSESSIONID"))
                 .findFirst().orElseThrow().getValue();
+    }
+
+    private String clarificationPath(String id) {return "/api/candidate/applications/"+id+"/clarifications";}
+    private JsonNode generateQuestions(String id) throws Exception {
+        var response=post(clarificationPath(id)+"/generate",Map.of(),csrf());
+        assertEquals(200,response.statusCode(),response.body());return mapper.readTree(response.body()).path("data");
+    }
+    private String assessedClarificationApplication() throws Exception {
+        aiMode="ok";String id=submittedApplication();
+        context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(id));
+        assertEquals("COMPLETED",ownAiStatus(id).path("state").asText());return id;
+    }
+    @Test void clarificationsAreOptionalCachedGroundedAndVisibleToHrWithoutChangingScores() throws Exception {
+        String id=submittedApplication();clarificationCalls.set(0);clarificationMode="ok";aiMode="ok";
+        assertEquals("WAITING",generateQuestions(id).path("state").asText());assertEquals(0,clarificationCalls.get());
+        context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(id));
+        var original=mapper.readTree(get("/api/candidate/applications/"+id).body()).path("data");
+        var score=ownAiStatus(id).path("score");
+        var data=generateQuestions(id);assertEquals("READY",data.path("state").asText(),data.toString());
+        assertEquals(3,data.path("questions").size());assertEquals(1,clarificationCalls.get());
+        assertFalse(lastClarificationRequest.path("resume").has("email"));assertFalse(lastClarificationRequest.path("resume").has("fullName"));
+        assertFalse(lastClarificationRequest.has("interview_questions"));assertEquals(3,lastClarificationRequest.path("targets").size());
+        assertEquals(data,generateQuestions(id));assertEquals(1,clarificationCalls.get());
+        var question=data.at("/questions/0");String path=clarificationPath(id)+"/"+question.path("id").asText();
+        assertEquals("Java",question.path("evidence").asText());
+        var response=sendResume("PUT",path,Map.of("version",0,"action","ANSWER","answer","Tôi phụ trách API và viết kiểm thử cho dự án cá nhân."),true);
+        assertEquals(200,response.statusCode(),response.body());
+        assertEquals("ANSWERED",mapper.readTree(response.body()).at("/data/questions/0/responseStatus").asText());
+        assertEquals(original,mapper.readTree(get("/api/candidate/applications/"+id).body()).path("data"));assertEquals(score,ownAiStatus(id).path("score"));
+        var candidate=client;newBrowserSession();loginStaff("recruiter");
+        var hr=get("/api/recruiter/applications/"+id+"/clarifications");assertEquals(200,hr.statusCode(),hr.body());
+        assertEquals("no-store",hr.headers().firstValue("Cache-Control").orElse(""));
+        var hrData=mapper.readTree(hr.body()).path("data");assertFalse(hrData.path("canEdit").asBoolean());assertFalse(hrData.path("canGenerate").asBoolean());
+        assertTrue(hrData.at("/questions/0/answer").asText().contains("kiểm thử"));
+        assertEquals(403,sendResume("PUT",path,Map.of("version",1,"action","SKIP"),true).statusCode());
+        client=candidate;
+    }
+    @Test void clarificationAnswersEnforceOwnershipCsrfVersionsAndClosedStages() throws Exception {
+        String id=assessedClarificationApplication();var data=generateQuestions(id);String base=clarificationPath(id);
+        assertEquals(403,post(base+"/generate",Map.of(),null).statusCode());
+        String path=base+"/"+data.at("/questions/0/id").asText();var owner=client;
+        assertEquals(403,sendResume("PUT",path,Map.of("version",0,"action","ANSWER","answer","Test"),false).statusCode());
+        assertEquals(400,sendResume("PUT",path,Map.of("version",0,"action","ANSWER","answer","   "),true).statusCode());
+        assertEquals(400,sendResume("PUT",path,Map.of("version",0,"action","ANSWER","answer","x".repeat(3001)),true).statusCode());
+        assertEquals(404,sendResume("PUT",base+"/"+UUID.randomUUID(),Map.of("version",0,"action","SKIP"),true).statusCode());
+        newBrowserSession();registerResumeOwner();assertEquals(404,get(base).statusCode());assertEquals(404,post(base+"/generate",Map.of(),csrf()).statusCode());
+        assertEquals(404,sendResume("PUT",path,Map.of("version",0,"action","SKIP"),true).statusCode());
+        assertEquals(403,get("/api/recruiter/applications/"+id+"/clarifications").statusCode());
+        newBrowserSession();assertEquals(401,get(base).statusCode());client=owner;
+        var saved=sendResume("PUT",path,Map.of("version",0,"action","ANSWER","answer","Kinh nghiệm dự án thực tế."),true);assertEquals(200,saved.statusCode());
+        assertEquals(409,sendResume("PUT",path,Map.of("version",0,"action","SKIP"),true).statusCode());
+        var skipped=sendResume("PUT",path,Map.of("version",1,"action","SKIP","answer","Không được lưu nội dung này"),true);
+        assertEquals(200,skipped.statusCode());assertEquals("",mapper.readTree(skipped.body()).at("/data/questions/0/answer").asText());
+        assertEquals("SKIPPED",mapper.readTree(skipped.body()).at("/data/questions/0/responseStatus").asText());
+        assertEquals(200,sendResume("PUT",path,Map.of("version",2,"action","ANSWER","answer","Bổ sung lại sau khi bỏ qua."),true).statusCode());
+        newBrowserSession();loginStaff("recruiter");assertEquals(200,changeStage(id,"REJECTED",0,"Không phù hợp vị trí").statusCode());client=owner;
+        assertFalse(mapper.readTree(get(base).body()).at("/data/canEdit").asBoolean());
+        assertEquals(409,sendResume("PUT",path,Map.of("version",3,"action","SKIP"),true).statusCode());
+        assertEquals(409,post(base+"/generate",Map.of(),csrf()).statusCode());
+    }
+    @Test void clarificationFailuresAreRetryableBoundedAndNeverStoreInvalidQuestions() throws Exception {
+        String id=assessedClarificationApplication();var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        clarificationCalls.set(0);
+        try {
+            clarificationMode="unavailable";assertEquals("FAILED",generateQuestions(id).path("state").asText());
+            assertFalse(generateQuestions(id).path("canGenerate").asBoolean());assertEquals(1,clarificationCalls.get());
+            jdbc.update("update recruitment.application_clarification_sets set retry_at=now()-interval '1 second' where application_id=?::uuid",id);
+            clarificationMode="invalid";var failed=generateQuestions(id);assertEquals("FAILED",failed.path("state").asText());assertEquals(0,failed.path("questions").size());
+            jdbc.update("update recruitment.application_clarification_sets set retry_at=now()-interval '1 second' where application_id=?::uuid",id);
+            assertEquals("FAILED",generateQuestions(id).path("state").asText());assertEquals(3,clarificationCalls.get());
+            jdbc.update("update recruitment.application_clarification_sets set retry_at=now()-interval '1 second' where application_id=?::uuid",id);
+            clarificationMode="ok";assertEquals("FAILED",generateQuestions(id).path("state").asText());assertEquals(3,clarificationCalls.get());
+            jdbc.update("update recruitment.application_clarification_sets set window_started_at=now()-interval '2 hours' where application_id=?::uuid",id);
+            assertEquals("READY",generateQuestions(id).path("state").asText());assertEquals(4,clarificationCalls.get());
+        } finally {clarificationMode="ok";}
+    }
+    @Test void clarificationConcurrentRequestsUseOneLeaseAndExpiredLeaseCanRecover() throws Exception {
+        String id=assessedClarificationApplication();var token=csrf();clarificationCalls.set(0);clarificationMode="hold";
+        clarificationEntered=new java.util.concurrent.CountDownLatch(1);clarificationRelease=new java.util.concurrent.CountDownLatch(1);
+        var request=HttpRequest.newBuilder(URI.create(baseUrl+clarificationPath(id)+"/generate")).header("Content-Type","application/json")
+            .header(token.header(),token.value()).POST(HttpRequest.BodyPublishers.ofString("{}")).build();
+        var first=client.sendAsync(request,HttpResponse.BodyHandlers.ofString());
+        try {
+            assertTrue(clarificationEntered.await(3,java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals("GENERATING",generateQuestions(id).path("state").asText());assertEquals(1,clarificationCalls.get());
+            clarificationRelease.countDown();var done=first.get(3,java.util.concurrent.TimeUnit.SECONDS);assertEquals("READY",mapper.readTree(done.body()).at("/data/state").asText());
+        } finally {clarificationRelease.countDown();clarificationMode="ok";}
+        String second=assessedClarificationApplication();
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        jdbc.update("""
+            insert into recruitment.application_clarification_sets(application_id,assessment_id,state,lease_token,lease_until,retry_at,attempts)
+            select application_id,id,'GENERATING',gen_random_uuid(),now()-interval '1 minute',now()-interval '1 minute',1 from recruitment.ai_assessments where application_id=?::uuid
+            """,second);
+        assertEquals("READY",generateQuestions(second).path("state").asText());assertEquals(2,clarificationCalls.get());
+    }
+    @Test void clarificationDoesNotCallAiWhenAllRequirementsAlreadyHaveEvidence() throws Exception {
+        String id=submittedApplication();clarificationCalls.set(0);aiMode="all-matched";
+        try {context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(id));}
+        finally {aiMode="ok";}
+        assertEquals("NOT_NEEDED",generateQuestions(id).path("state").asText());
+        assertEquals("NOT_NEEDED",generateQuestions(id).path("state").asText());assertEquals(0,clarificationCalls.get());
+    }
+    @Test void clarificationExplainsFailedOrLegacyAnalysisInsteadOfWaitingForever() throws Exception {
+        String id=submittedApplication();var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        jdbc.update("update recruitment.ai_analysis_tasks set status='FAILED' where application_id=?::uuid",id);
+        var data=generateQuestions(id);assertEquals("NEEDS_ANALYSIS",data.path("state").asText());assertFalse(data.path("canGenerate").asBoolean());
+    }
+
+    @Test void clarificationPdfUsesSubmittedSourceAndDoesNotParseAgainOrUseLaterEdits() throws Exception {
+        aiMode="ok";clarificationMode="ok";
+        for(boolean confirmed:java.util.List.of(false,true)) {
+            newBrowserSession();String job=applicationJob();
+            var uploaded=uploadPdf(("%PDF-1.7\nclarification "+UUID.randomUUID()).getBytes(),true);
+            assertEquals(200,uploaded.statusCode());String doc=mapper.readTree(uploaded.body()).at("/data/id").asText();
+            var input=new java.util.HashMap<String,Object>();input.put("jobId",job);input.put("sourceDocumentId",doc);input.put("submissionFormat","ORIGINAL_PDF");
+            JsonNode reviewed=null;
+            if(confirmed) {
+                assertEquals(200,post("/api/candidate/cv-documents/"+doc+"/parse",Map.of(),csrf()).statusCode());
+                reviewed=confirmPdf(doc);input.put("documentVersion",reviewed.path("reviewVersion").asLong());
+            }
+            var submitted=post("/api/candidate/applications",input,csrf());assertEquals(201,submitted.statusCode(),submitted.body());
+            String id=mapper.readTree(submitted.body()).at("/data/id").asText();
+            context.getBean(com.lumi.recruitment.service.AiAnalysisTaskService.class).process(claimOnly(id));
+            int parsed=parseCalls.get();
+            if(reviewed==null) reviewed=confirmPdf(doc);
+            var changed=(tools.jackson.databind.node.ObjectNode)reviewed.path("reviewed").deepCopy();changed.put("summary","LATER EDIT MUST NOT LEAK");
+            assertEquals(200,sendResume("PUT","/api/candidate/cv-documents/"+doc+"/review",Map.of("content",changed,"version",reviewed.path("reviewVersion").asLong(),"confirm",true),true).statusCode());
+            assertEquals("READY",generateQuestions(id).path("state").asText());
+            assertEquals(parsed,parseCalls.get());assertEquals("Original PDF evidence",lastClarificationRequest.at("/resume/summary").asText());
+            assertFalse(lastClarificationRequest.toString().contains("LATER EDIT"));
+        }
     }
 
     private record Token(String header, String value) { }

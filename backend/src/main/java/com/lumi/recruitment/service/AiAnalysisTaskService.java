@@ -30,6 +30,7 @@ public class AiAnalysisTaskService {
     public Task claim() {
         jdbc.update("update recruitment.ai_analysis_tasks set status='FAILED',lease_token=null,lease_until=null,last_error_code='LEASE_EXHAUSTED',updated_at=now() where status='PROCESSING' and lease_until<now() and attempts>=?",maxAttempts());
         var token=UUID.randomUUID();
+        // A PDF can require two model calls: extraction followed by JD assessment.
         return jdbc.query("""
             with due as (
               select id from recruitment.ai_analysis_tasks
@@ -38,7 +39,7 @@ public class AiAnalysisTaskService {
             ) update recruitment.ai_analysis_tasks t set status='PROCESSING',attempts=t.attempts+1,
               lease_token=?,lease_until=now()+(? * interval '1 second'),updated_at=now()
             from due where t.id=due.id returning t.id,t.application_id,t.attempts
-            """,(rs,n)->new Task(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),token,rs.getInt(3)),maxAttempts(),token,Math.max(120,timeout+30))
+            """,(rs,n)->new Task(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),token,rs.getInt(3)),maxAttempts(),token,Math.max(120,timeout*2+30))
             .stream().findFirst().orElse(null);
     }
     public void process(Task task) {
@@ -65,10 +66,17 @@ public class AiAnalysisTaskService {
     }
     @Transactional(readOnly=true)
     public ApplicationAiStatusDto status(Authentication auth,UUID application) {
+        return status(auth,application,false);
+    }
+    @Transactional(readOnly=true)
+    public ApplicationAiStatusDto status(Authentication auth,UUID application,boolean staff) {
         if(auth==null) throw new BadCredentialsException("Hãy đăng nhập để tiếp tục.");
-        var user=users.findByEmail(auth.getName()).filter(u->u.getStatus()==UserStatus.ACTIVE && u.getRole()==UserRole.CANDIDATE)
-            .orElseThrow(()->new ResponseStatusException(HttpStatus.FORBIDDEN,"Chỉ dành cho ứng viên."));
-        if(!Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from recruitment.applications where id=? and candidate_id=?)",Boolean.class,application,user.getId())))
+        var user=users.findByEmail(auth.getName()).filter(u->u.getStatus()==UserStatus.ACTIVE)
+            .orElseThrow(()->new BadCredentialsException("Phiên không còn hợp lệ."));
+        if(staff ? user.getRole()!=UserRole.RECRUITER && user.getRole()!=UserRole.COMPANY_ADMIN : user.getRole()!=UserRole.CANDIDATE)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Bạn không có quyền xem tiến độ hồ sơ này.");
+        if(!Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from recruitment.applications where id=?"+(staff?"":" and candidate_id=?")+")",Boolean.class,
+            staff?new Object[]{application}:new Object[]{application,user.getId()})))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Không tìm thấy đơn ứng tuyển của bạn.");
         var result=jdbc.query("""
             select coalesce(t.status,'NOT_REQUESTED'),coalesce(t.attempts,0),t.next_attempt_at,

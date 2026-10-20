@@ -64,7 +64,7 @@ async def generate_recruitment_email(request: GenerateEmailRequest) -> Generated
     prompt = SYSTEM_EMAIL_PROMPT + "\n<INPUT_JSON>\n" + json.dumps(request.model_dump(), ensure_ascii=False)
     schema = strict_schema(GeneratedEmailResult.model_json_schema())
 
-    for provider in sorted(upstream.providers(), key=lambda p: p.name != "gemini"):
+    for provider in upstream.providers():
         if not upstream.available(provider):
             continue
         try:

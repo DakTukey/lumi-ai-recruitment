@@ -14,7 +14,7 @@ import java.util.*;
 
 @Component @RequiredArgsConstructor
 public class AssessmentContext {
-    public static final String PROMPT_VERSION="v3", EVALUATION_VERSION="evidence-fit-v3";
+    public static final String PROMPT_VERSION="v4", EVALUATION_VERSION="evidence-fit-v4";
     private final ObjectMapper mapper;
     public record Target(String name,boolean required,BigDecimal weight) {}
     public record Input(JsonNode job,JsonNode resume,String jobHash,String inputHash) {}

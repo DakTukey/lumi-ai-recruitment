@@ -65,7 +65,7 @@ export async function triggerAssessment(
   const response = await post<AiAssessment>(
     `/recruiter/applications/${applicationId}/assessment`,
     { force },
-    { timeoutMs: 40000 },
+    { timeoutMs: 550000 },
   )
   return response.data
 }

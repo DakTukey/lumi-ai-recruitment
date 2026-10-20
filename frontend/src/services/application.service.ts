@@ -58,7 +58,7 @@ export type SubmittedApplication = {
   id: string
   jobId: string
   candidateId: string
-  resumeId: string
+  resumeId: string | null
   status: ApplicationStatus
   coverLetter: string | null
   jobVersion: number
@@ -102,10 +102,12 @@ export type SubmittedApplication = {
 }
 export const applyToJob = async (
   jobId: string,
-  resumeId: string,
-  resumeVersion: number,
+  resumeId: string | null,
+  resumeVersion: number | null,
   coverLetter?: string,
   submissionFormat: 'BUILDER' | 'ORIGINAL_PDF' = 'BUILDER',
+  sourceDocumentId?: string,
+  documentVersion?: number,
 ) =>
   (
     await post<SubmittedApplication>('/candidate/applications', {
@@ -114,6 +116,8 @@ export const applyToJob = async (
       resumeVersion,
       coverLetter,
       submissionFormat,
+      sourceDocumentId,
+      documentVersion,
     })
   ).data
 export const getApplications = async (staff: boolean, params = new URLSearchParams()) =>

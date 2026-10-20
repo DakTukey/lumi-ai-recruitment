@@ -112,6 +112,7 @@ public class ResumeService {
         if (target.getStatus() != ResumeStatus.READY)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hãy hoàn tất CV trước khi đặt mặc định.");
         var previous = resumes.findByCandidate_UserIdAndDefaultResumeTrue(owner.getUserId());
+        jdbc.update("update candidate.candidate_profiles set default_document_id=null where user_id=?",owner.getUserId());
         if (previous.isPresent() && !previous.get().getId().equals(id)) {
             previous.get().setDefaultResume(false); previous.get().setUpdatedAt(Instant.now()); resumes.flush();
         }

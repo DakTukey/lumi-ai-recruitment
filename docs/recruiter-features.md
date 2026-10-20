@@ -17,8 +17,8 @@ Trạng thái **Thật** nghĩa là đã kết nối tài khoản/API/database. 
 | Tin tuyển dụng | Sửa bản nháp hoặc tin đã đóng | Thật; tin đang tuyển cần đóng trước khi sửa |
 | Tin tuyển dụng | Đăng, đóng và mở lại tin | Thật; có xác nhận và kiểm tra dữ liệu/hạn/phiên bản |
 | Tin tuyển dụng | Xem nội dung, tiêu chí và lịch sử chỉnh sửa | Thật; lịch sử ghi cùng transaction với thay đổi tin |
-| Tạo tin với AI | Nhập JD bằng văn bản/file PDF, DOCX, MD, TXT | Mẫu UI; có chọn file và kiểm tra cơ bản, chưa upload hoặc đọc/trích xuất nội dung |
-| Tạo tin với AI | Cung cấp brief để AI soạn JD | Mẫu UI; chưa gọi AI tạo nội dung |
+| Tạo tin với AI | Nhập JD bằng văn bản/file PDF, DOCX, MD, TXT | Thật; cấu hình Qwen cục bộ đọc PDF chữ/scan, điền bản nháp cho HR kiểm tra; chưa lưu tin khi chỉ phân tích. Xem local-qwen-cv-processing.md |
+| Tạo tin với AI | Cung cấp brief để AI soạn JD | Đã nối provider API; nội dung trả vào form cho HR duyệt trước khi lưu |
 | Ứng viên theo job | Tab Ứng viên, lọc tên/vòng, phân trang và số hồ sơ | Thật; khóa đúng job, số tổng không chỉ tính trang đang xem |
 | Ứng viên theo job | Mở CV, quay lại job; mở danh sách tổng thể đã lọc job | Thật; cùng API và CV snapshot; mở đánh giá đã lưu hoặc phân tích mới |
 | Tổng hợp AI theo job | Tổng số hồ sơ và số chưa phân tích | Thật; đếm từng hồ sơ có kết quả đã lưu, không đếm lặp khi phân tích lại |
@@ -38,7 +38,6 @@ Trạng thái **Thật** nghĩa là đã kết nối tài khoản/API/database. 
 - Ứng viên rút đơn thật chưa triển khai. HR đã ghi chú/chuyển vòng/lưu lịch sử thật bằng V10; không đặt trạng thái Đã rút.
 - Điểm phù hợp từng kỹ năng 0–100% và trọng số riêng đã có trong luồng thật; chưa phải điểm năng lực đã xác minh hoặc độ tin cậy của bằng chứng.
 - Matching CV–JD, giải thích, roadmap và tổng hợp kết quả đã triển khai; chưa thử Gemini thật do thiếu khóa. Xác minh claim, thu thập GitHub/bài test/phỏng vấn và Skill Passport chưa có.
-- AI đọc file JD và AI soạn JD; upload, nhận dạng và kiểm tra file phía server.
 - Lịch phỏng vấn, email/thông báo, quản lý offer thật và báo cáo tuyển dụng theo thời gian.
 - Phỏng vấn AI video/thích ứng, báo cáo kỹ thuật, ghi nhận tín hiệu nghi vấn và xem bằng chứng theo timestamp.
 - Upload ảnh HR bằng file; chức năng xóa tin chưa có. Hồ sơ HR đã xem/lưu thật qua API.

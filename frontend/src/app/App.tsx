@@ -1,6 +1,14 @@
 import { ArrowLeft } from 'lucide-react'
 import { useEffect } from 'react'
-import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom'
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from 'react-router-dom'
 import { AdminPage } from '../features/admin/AdminPage'
 import { ApplicationsPage } from '../features/applications/pages/ApplicationsPage'
 import { AuthPage } from '../features/auth/AuthPage'
@@ -11,13 +19,21 @@ import { JobDetailPage } from '../features/jobs/pages/JobDetailPage'
 import { RecruiterPage } from '../features/jobs/pages/RecruiterPage'
 import { OnboardingPage } from '../features/profile/OnboardingPage'
 import { ProfilePage } from '../features/profile/pages/ProfilePage'
-import { CvBuilderPage } from '../features/resumes/CvBuilderPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { PublicLayout } from '../layouts/PublicLayout'
 import { AuthProvider } from './providers/AuthProvider'
 import { SavedJobsProvider } from './providers/SavedJobsProvider'
 import { OnboardingGate } from './routes/OnboardingGate'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+function RetiredCvBuilder() {
+  const [params] = useSearchParams()
+  const next = new URLSearchParams({ tab: 'cv' })
+  for (const key of ['jobId', 'documentId']) {
+    const value = params.get(key)
+    if (value) next.set(key, value)
+  }
+  return <Navigate replace to={`/profile?${next}`} />
+}
 function ScrollToTop() {
   const { pathname } = useLocation()
   useEffect(() => {
@@ -51,7 +67,7 @@ export default function App() {
                 <Route path="saved" element={<ExplorePage key="saved" savedOnly />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="settings" element={<SettingsPage />} />
-                <Route path="cv-builder" element={<CvBuilderPage />} />
+                <Route path="cv-builder" element={<RetiredCvBuilder />} />
                 <Route path="applications" element={<ApplicationsPage />} />
               </Route>
               <Route

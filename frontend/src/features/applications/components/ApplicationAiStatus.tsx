@@ -10,7 +10,13 @@ const labels: Record<Status['state'], string> = {
   SKIPPED: 'Đã dừng phân tích tự động',
   NOT_REQUESTED: 'Hồ sơ này chưa có lượt phân tích tự động',
 }
-export function ApplicationAiStatus({ applicationId }: { applicationId: string }) {
+export function ApplicationAiStatus({
+  applicationId,
+  staff = false,
+}: {
+  applicationId: string
+  staff?: boolean
+}) {
   const [result, setResult] = useState<{ data?: Status; error?: string } | null>(null)
   const [retry, setRetry] = useState(0)
   useEffect(() => {
@@ -21,7 +27,7 @@ export function ApplicationAiStatus({ applicationId }: { applicationId: string }
       if (inFlight || finished || document.visibilityState === 'hidden') return
       inFlight = true
       try {
-        const data = await getApplicationAiStatus(applicationId)
+        const data = await getApplicationAiStatus(applicationId, staff)
         if (active) {
           setResult({ data })
           finished = !['PENDING', 'PROCESSING'].includes(data.state)
@@ -43,7 +49,7 @@ export function ApplicationAiStatus({ applicationId }: { applicationId: string }
       active = false
       clearInterval(timer)
     }
-  }, [applicationId, retry])
+  }, [applicationId, staff, retry])
   return (
     <section
       className="candidate-ai-status"
@@ -76,6 +82,14 @@ export function ApplicationAiStatus({ applicationId }: { applicationId: string }
           )}
           {result.data.state === 'PENDING' && result.data.attempts > 0 && (
             <p>Hệ thống đang chờ thử lại khi dịch vụ AI khả dụng.</p>
+          )}
+          {result.data.state === 'FAILED' && (
+            <p>
+              Chưa có điểm AI, không phải điểm 0.{' '}
+              {staff
+                ? 'Bạn có thể xem PDF, chuyển vòng thủ công hoặc thử lại trong mục Đánh giá AI.'
+                : 'HR vẫn có thể xem PDF và xử lý hồ sơ của bạn.'}
+            </p>
           )}
         </>
       )}

@@ -22,5 +22,7 @@ public record ParsedResumeDto(
     List<Language> languages,
     List<Award> awards,
     List<Activity> activities,
-    List<ExtraSection> extraSections, List<String> warnings, String extractedText, Integer pageCount
-) {}
+    List<ExtraSection> extraSections, List<String> warnings, String extractedText, Integer pageCount, List<FieldSource> sources
+) {
+    public record FieldSource(String path, String quote, Integer page, boolean verified) {}
+}

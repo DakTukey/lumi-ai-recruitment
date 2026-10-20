@@ -1,6 +1,15 @@
 export type RecruiterSection = 'overview' | 'jobs' | 'candidates' | 'profile'
 export const jobTabs = ['content', 'applicants', 'ai', 'history'] as const
-export const applicationTabs = ['cv', 'jd', 'workflow', 'notes', 'ai', 'history'] as const
+export const applicationTabs = [
+  'cv',
+  'jd',
+  'clarifications',
+  'workflow',
+  'notes',
+  'ai',
+  'email',
+  'history',
+] as const
 const sectionPaths: Record<RecruiterSection, string> = {
   overview: '/recruiter',
   jobs: '/recruiter/jobs',

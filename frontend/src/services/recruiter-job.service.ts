@@ -192,15 +192,15 @@ export type ParsedJobDraftResponse = {
   departmentId?: string
 }
 
-export function mapParsedToDraft(parsed: ParsedJobDraftResponse): JobDraft {
+export function mapParsedToDraft(parsed: ParsedJobDraftResponse, applyDefaults = true): JobDraft {
   return {
     title: parsed.title || '',
-    category: parsed.category || 'Công nghệ',
-    headcount: parsed.headcount || '1',
-    location: parsed.location || 'Đà Nẵng',
-    level: parsed.level || 'Middle',
-    mode: parsed.mode || 'Hybrid',
-    employmentType: parsed.employmentType || 'FULL_TIME',
+    category: parsed.category || (applyDefaults ? 'Công nghệ' : ''),
+    headcount: parsed.headcount || (applyDefaults ? '1' : ''),
+    location: parsed.location || (applyDefaults ? 'Đà Nẵng' : ''),
+    level: parsed.level || (applyDefaults ? 'Middle' : ''),
+    mode: parsed.mode || (applyDefaults ? 'Hybrid' : ''),
+    employmentType: parsed.employmentType || (applyDefaults ? 'FULL_TIME' : ''),
     salaryMode: (parsed.salaryMode as any) || 'NEGOTIABLE',
     salaryMin: parsed.salaryMin || '',
     salaryMax: parsed.salaryMax || '',
@@ -214,7 +214,7 @@ export function mapParsedToDraft(parsed: ParsedJobDraftResponse): JobDraft {
       type: (c.type as any) || 'EXPERIENCE',
       description: c.description || '',
       required: c.required ?? true,
-      weight: Number(c.weight) || 20,
+      weight: c.weight == null ? 20 : Number(c.weight),
     })),
     departmentId: parsed.departmentId || '',
   }
@@ -231,8 +231,10 @@ export async function parseJobDraft(input: {
   if (input.text) {
     form.append('text', input.text)
   }
-  const res = await upload<ParsedJobDraftResponse>('/recruiter/jobs/ai-parse-jd', form)
-  return mapParsedToDraft(res.data)
+  const res = await upload<ParsedJobDraftResponse>('/recruiter/jobs/ai-parse-jd', form, {
+    timeoutMs: 285000,
+  })
+  return mapParsedToDraft(res.data, false)
 }
 
 export async function generateJobDraft(brief: {

@@ -86,12 +86,12 @@ test('list history snapshots preserve loaded data and are isolated by history en
 
 test('improve and return links preserve the selected CV and job without redirect URLs', () => {
   const improve = new URL(improveCvPath(id, 'cv-id'), 'https://lumi.local')
-  assert.equal(improve.pathname, '/cv-builder')
-  assert.equal(improve.searchParams.get('id'), 'cv-id')
+  assert.equal(improve.pathname, '/profile')
+  assert.equal(improve.searchParams.get('documentId'), 'cv-id')
   assert.equal(improve.searchParams.get('jobId'), id)
-  assert.equal(improve.searchParams.get('returnTo'), 'match')
+  assert.equal(improve.searchParams.get('tab'), 'cv')
   const back = new URL(jobMatchPath(id, 'cv-id'), 'https://lumi.local')
   assert.equal(back.searchParams.get('match'), '1')
-  assert.equal(back.searchParams.get('resumeId'), 'cv-id')
+  assert.equal(back.searchParams.get('documentId'), 'cv-id')
   assert.equal(back.hash, '#job-cv-match')
 })

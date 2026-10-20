@@ -1,5 +1,7 @@
 # 🤖 BÁO CÁO CHI TIẾT CÁC TÍNH NĂNG AI TRONG HỆ THỐNG LUMI RECRUITMENT
 
+> CV Builder và trợ lý viết/rà soát Builder đã ngừng trong luồng ứng viên. Dự án hiện dùng PDF gốc và dữ liệu được xác nhận. Xem [luồng hiện tại](docs/pdf-only-candidate-cv.md).
+
 Tài liệu này tổng hợp toàn bộ **kiến trúc kỹ thuật, luồng hoạt động chi tiết (End-to-End Workflow), cơ chế chống ảo giác (Anti-Hallucination) và hướng dẫn trả lời vấn đáp** cho toàn bộ 7 tính năng AI trong hệ thống tuyển dụng **Lumi AI Recruitment**.
 
 ---

@@ -6,7 +6,7 @@ from models.schemas import AssessRequest, AssessResult, CriterionResult, GapItem
 from services.prompt_builder import assessment_targets, build_assessment_prompt
 
 MODEL_NAME = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')
-PROMPT_VERSION = 'v3'
+PROMPT_VERSION = 'v4'
 
 
 
@@ -25,7 +25,8 @@ async def assess(req: AssessRequest) -> AssessResult:
     schema['properties']['criteria']['items']['properties']['evidence']['enum'] = evidence_options(req.resume)
     schema['properties']['gaps']['items']['properties']['skill']['enum'] = [t['skill'] for t in assessment_targets(req.job)]
     return await generate_grounded(build_assessment_prompt(req.job, req.resume), schema,
-                                   lambda data: normalize_result(req, data), max_tokens=16384)
+                                   lambda data: normalize_result(req, data), max_tokens=16384,
+                                   feature='cv_processing')
 
 
 def normalize_result(req: AssessRequest, data: dict) -> AssessResult:
@@ -53,6 +54,22 @@ def normalize_result(req: AssessRequest, data: dict) -> AssessResult:
             raise ValueError('No-evidence criterion cannot contain evidence')
         if c.evidence and not any(c.evidence in text for text in resume_texts(req.resume)):
             raise ValueError('Evidence is not an exact CV quote')
+        if c.criterion_key.startswith('skill:') and c.evidence and not mentions_skill(c.evidence, target['skill']):
+            replacement = skill_evidence(req.resume, target['skill'])
+            if replacement:
+                c.evidence = replacement
+            else:
+                c.match_level = 'NO_EVIDENCE'
+                c.evidence = ''
+                c.points = 0
+                c.reason = 'CV không có trích dẫn nêu rõ kỹ năng này; cần hỏi thêm ứng viên.'
+        if c.criterion_key.startswith('skill:') and c.evidence in req.resume.skills:
+            stronger = skill_evidence(req.resume, target['skill'])
+            if stronger not in req.resume.skills:
+                c.evidence = stronger
+            else:
+                c.match_level = 'PARTIAL'
+                c.points = min(c.points, 40)
         seen.add(c.criterion_key)
         criteria.append(c)
         weight = Decimal(str(target['weight']))
@@ -84,6 +101,32 @@ def resume_texts(resume):
         elif isinstance(value, list):
             for child in value: yield from leaves(child)
     return list(leaves(resume.model_dump(exclude={'full_name', 'linkedin_url'})))
+
+
+def skill_evidence(resume, skill: str) -> str:
+    """Anchor a skill score to an actual experience/project quote when possible."""
+    def strings(value):
+        if isinstance(value, str):
+            yield value
+        elif isinstance(value, dict):
+            for child in value.values():
+                yield from strings(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from strings(child)
+    for section in (resume.experiences, resume.projects, resume.certifications, resume.educations):
+        for item in section:
+            for text in strings(item):
+                if mentions_skill(text, skill) and len(text) <= 1200:
+                    return text
+    for text in resume_texts(resume):
+        if mentions_skill(text, skill) and len(text) <= 1200:
+            return text
+    return ''
+
+
+def mentions_skill(text: str, skill: str) -> bool:
+    return bool(re.search(r'(?<!\w)' + re.escape(skill) + r'(?!\w)', text, flags=re.IGNORECASE))
 
 
 def evidence_options(resume):

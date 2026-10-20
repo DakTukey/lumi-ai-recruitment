@@ -20,16 +20,25 @@ public class ApplicationAiEvaluator {
     private final AiServiceClient ai;
     private final ObjectMapper mapper;
     private final AssessmentContext contexts;
+    private final CvDocumentService documents;
     private final Semaphore slots=new Semaphore(2);
 
     @Transactional
     public UUID evaluate(UUID id,boolean force) {
         if(!Boolean.TRUE.equals(jdbc.queryForObject("select pg_try_advisory_xact_lock(hashtextextended(?,0))",Boolean.class,"assessment:"+id)))
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Hồ sơ này đang được phân tích. Hãy chờ kết quả.");
-        var snapshot=jdbc.query("select a.job_snapshot::text,s.content::text,a.candidate_id::text,a.job_id::text,a.resume_id::text from recruitment.applications a join recruitment.application_resume_snapshots s on s.application_id=a.id where a.id=?",
-            (rs,n)->new String[]{rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5)},id).stream().findFirst()
+        var snapshot=jdbc.query("select a.job_snapshot::text,s.content::text,a.candidate_id::text,a.job_id::text,a.resume_id::text,a.submission_format,a.source_document_id::text from recruitment.applications a join recruitment.application_resume_snapshots s on s.application_id=a.id where a.id=?",
+            (rs,n)->new String[]{rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7)},id).stream().findFirst()
             .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Chưa có CV đã nộp."));
-        var input=contexts.input(mapper.readTree(snapshot[0]),mapper.readTree(snapshot[1]));
+        var resume=mapper.readTree(snapshot[1]);
+        if("ORIGINAL_PDF".equals(snapshot[5]) && !resume.path("pdfConfirmedAt").isMissingNode()) {
+            resume=resume.path("pdfReviewedContent");
+        } else if("ORIGINAL_PDF".equals(snapshot[5])) {
+            // Read the immutable original after submission, independently of later candidate edits.
+            var parsed=documents.parseForAssessment(UUID.fromString(snapshot[2]),UUID.fromString(snapshot[6]));
+            resume=mapper.valueToTree(parsed);
+        }
+        var input=contexts.input(mapper.readTree(snapshot[0]),resume);
         if(!force) {
             var existing=jdbc.query("select id from recruitment.ai_assessments where application_id=? and input_hash=? and evaluation_version=? order by created_at desc,id desc limit 1",
                 (rs,n)->rs.getObject(1,UUID.class),id,input.inputHash(),AssessmentContext.EVALUATION_VERSION);
@@ -57,10 +66,13 @@ public class ApplicationAiEvaluator {
         jdbc.update("update recruitment.ai_analysis_tasks set status='COMPLETED',result_assessment_id=?,lease_token=null,lease_until=null,last_error_code=null,updated_at=now() where application_id=?",assessment,application);
     }
     private AiServiceResult fromMatch(UUID id,String[] snapshot,AssessmentContext.Input input) {
+        boolean pdf="ORIGINAL_PDF".equals(snapshot[5]);
+        String sourceId=pdf?snapshot[6]:snapshot[4];
+        if(sourceId==null) return null;
         var rows=jdbc.query("""
-            select assessment_payload::text from recruitment.candidate_job_matches
-            where candidate_id=?::uuid and job_id=?::uuid and resume_id=?::uuid and input_hash=? and job_context_hash=? and evaluation_version=? and assessment_payload is not null
-            """,(rs,n)->rs.getString(1),snapshot[2],snapshot[3],snapshot[4],input.inputHash(),input.jobHash(),AssessmentContext.EVALUATION_VERSION);
+            select assessment_payload::text from %s
+            where candidate_id=?::uuid and job_id=?::uuid and %s=?::uuid and input_hash=? and job_context_hash=? and evaluation_version=? and assessment_payload is not null
+            """.formatted(pdf?"recruitment.candidate_pdf_job_matches":"recruitment.candidate_job_matches",pdf?"document_id":"resume_id"),(rs,n)->rs.getString(1),snapshot[2],snapshot[3],sourceId,input.inputHash(),input.jobHash(),AssessmentContext.EVALUATION_VERSION);
         if(rows.isEmpty()) return null;
         try {
             var cached=mapper.readValue(rows.getFirst(),AiServiceResult.class);

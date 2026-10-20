@@ -14,10 +14,13 @@ import org.springframework.web.bind.annotation.*;
 @ConditionalOnWebApplication(type=ConditionalOnWebApplication.Type.SERVLET)
 public class CvReviewController {
     private final CvReviewService service;
+    private final com.lumi.recruitment.service.CvBuilderPolicy builderPolicy;
     @PostMapping public ResponseEntity<ApiResponse<CvReviewDto.Result>> review(Authentication auth, @Valid @RequestBody CvReviewDto.Request input) {
+        builderPolicy.requireEnabled();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.ok("Đã rà soát CV. Hãy kiểm tra từng đề xuất.", service.review(auth,input)));
     }
     @PostMapping("/refine") public ResponseEntity<ApiResponse<CvReviewDto.Refined>> refine(Authentication auth, @Valid @RequestBody CvReviewDto.RefineRequest input) {
+        builderPolicy.requireEnabled();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.ok("Đề xuất từ thông tin bạn cung cấp.", service.refine(auth,input)));
     }
 }

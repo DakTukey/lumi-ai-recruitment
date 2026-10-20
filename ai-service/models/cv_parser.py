@@ -68,6 +68,13 @@ class ParsedExtraSection(BaseModel):
     content: str = Field(max_length=12000)
 
 
+class FieldSource(BaseModel):
+    path: str = Field(max_length=150)
+    quote: str = Field(max_length=600)
+    page: int = Field(ge=1, le=10)
+    verified: bool = False
+
+
 class ParsedCvResult(BaseModel):
     title: str = "CV từ tệp tải lên"
     fullName: str = ""
@@ -92,3 +99,4 @@ class ParsedCvResult(BaseModel):
     warnings: list[str] = Field(default_factory=list, max_length=50)
     extractedText: str = ""
     pageCount: int = 0
+    sources: list[FieldSource] = Field(default_factory=list, max_length=80)
